@@ -64,6 +64,7 @@ loadScripts(document, 'script');</script>
 <ol class="toc-list">
 <li><a href="#createDPRFileName()" tabindex="0">createDPRFileName()</a></li>
 <li><a href="#writeReport(java.util.List)" tabindex="0">writeReport(List)</a></li>
+<li><a href="#createEnrollmentChart(org.apache.poi.xssf.usermodel.XSSFSheet)" tabindex="0">createEnrollmentChart(XSSFSheet)</a></li>
 </ol>
 </li>
 </ol>
@@ -119,8 +120,13 @@ loadScripts(document, 'script');</script>
 <div class="block">Creates our DPR filename.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#writeReport(java.util.List)" class="member-name-link">writeReport</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="SummaryReport.CourseProjection.html" title="class in edu.odu.cs.cs350">SummaryReport.CourseProjection</a>&gt;&nbsp;projectionsList)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#createEnrollmentChart(org.apache.poi.xssf.usermodel.XSSFSheet)" class="member-name-link">createEnrollmentChart</a><wbr>(org.apache.poi.xssf.usermodel.XSSFSheet&nbsp;sheet)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Creates a graph</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#writeReport(java.util.List)" class="member-name-link">writeReport</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;<a href="SummaryReport.CourseProjection.html" title="class in edu.odu.cs.cs350">SummaryReport.CourseProjection</a>&gt;&nbsp;projectionsList)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Writes the actual DPR, in all its glory!
 
 TODO: Call projection in a sane manner as oppsed to what we are currently doing.</div>
@@ -192,6 +198,19 @@ TODO: Call projection in a sane manner as oppsed to what we are currently doing.
 <dd><code>projectionsList</code> - the projections we have already made</dd>
 <dt>Throws:</dt>
 <dd><code><a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/io/IOException.html" title="class or interface in java.io" class="external-link">IOException</a></code></dd>
+</dl>
+</div>
+</section>
+</li>
+<li>
+<section class="detail" id="createEnrollmentChart(org.apache.poi.xssf.usermodel.XSSFSheet)">
+<h3>createEnrollmentChart</h3>
+<div class="horizontal-scroll">
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">createEnrollmentChart</span><wbr><span class="parameters">(org.apache.poi.xssf.usermodel.XSSFSheet&nbsp;sheet)</span></div>
+<div class="block">Creates a graph</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>sheet</code> - the course sheet where the chart is made</dd>
 </dl>
 </div>
 </section>
