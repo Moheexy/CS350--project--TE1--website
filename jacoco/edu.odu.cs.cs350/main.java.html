@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>main.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">edu.odu.cs.cs350</a> &gt; <span class="el_source">main.java</span></div><h1>main.java</h1><pre class="source lang-java linenums">package edu.odu.cs.cs350;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.TreeSet;
+
+/**
+ * 
+ * Main class of our program.
+ */
+public final class main {
+
+    private main(){}
+
+    /**
+     * Main method.
+     * 
+     * @param mainArguments CLI arguments that should be of the form:
+     *  args[0-N] = 1-N historical semester directories
+     *  args[N+1] = 1 current semester directory
+     *  args[N+2] = file system path where the detailed projection report will be written
+     *  args[N+3] = a date (YYYY-MM-DD) indicating last day of the curretn semester on which enrollment data should be considered
+     */
+    public static void main(String[] mainArguments) {
+
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        if(mainArguments.length &lt; 4)</span>
+        {
+<span class="fc" id="L35">            System.out.print(</span>
+            &quot;&quot;&quot;
+            Usage: java -jar EnrollmentProjection.jar [OPTIONS] &lt;SEMESTER_DIRS&gt;...&lt;SEMESTER_TO_PROJECT_DIR&gt; &lt;DPR_TARGET_DIR&gt; &lt;CUTOFF_DATE&gt;
+            &quot;&quot;&quot;);
+<span class="fc" id="L39">            return;</span>
+        }
+
+<span class="fc" id="L42">        conductProjectionAndDisplay(mainArguments);</span>
+<span class="fc" id="L43">    }</span>
+
+   
+    private static void conductProjectionAndDisplay(String[] mainArguments) {
+        // Newline to separate arguments from program output
+<span class="fc" id="L48">        System.out.println();</span>
+
+        // Parse cutoff date
+<span class="fc" id="L51">        LocalDate cutoffDate =</span>
+<span class="fc" id="L52">            parseCutOffDate(mainArguments[mainArguments.length - 1]);</span>
+
+        // Get DPR output directory
+<span class="fc" id="L55">        Path detailedProjectReportOutputPath =</span>
+<span class="fc" id="L56">            parseDPROutputLocation(mainArguments[mainArguments.length - 2]);</span>
+
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (detailedProjectReportOutputPath == null) return;</span>
+
+        // Parse semester directories
+<span class="fc" id="L61">        ArrayList&lt;Path&gt; semesterDirectories =</span>
+<span class="fc" id="L62">            parsePotentialSemesterDirectories(</span>
+<span class="fc" id="L63">                Arrays.copyOfRange(</span>
+                    mainArguments, 0, mainArguments.length - 2
+                )
+            );
+
+        // Check for at least two semester directories
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        if (semesterDirectories.size() &lt; 2) return;</span>
+
+        // Remove duplicate directories
+<span class="fc" id="L72">        semesterDirectories = removeDuplicateDirectories(semesterDirectories);</span>
+
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">        if (semesterDirectories.size() &lt; 2) {</span>
+<span class="nc" id="L75">            System.err.println(&quot;Too few unique semester directories entered.&quot;);</span>
+<span class="nc" id="L76">            return;</span>
+        }
+
+        // Create DPR output directory if it doesn't exist
+        try {
+<span class="fc" id="L81">            Files.createDirectories(detailedProjectReportOutputPath);</span>
+<span class="nc" id="L82">        } catch (IOException | SecurityException e) {</span>
+<span class="nc" id="L83">            System.err.println(</span>
+<span class="nc" id="L84">                &quot;Unable to create DPR output directory: &quot; + e.getMessage()</span>
+            );
+<span class="nc" id="L86">            return;</span>
+<span class="fc" id="L87">        }</span>
+
+        // Read semester data and generate summary report
+        try {
+<span class="fc" id="L91">            ArrayList&lt;Semester&gt; allSemesters =</span>
+<span class="fc" id="L92">                ProjectionReader.readSemesterDirectory(</span>
+                    semesterDirectories, cutoffDate
+                );
+
+<span class="fc" id="L96">            checkCurrentSemesterPresent(semesterDirectories, allSemesters);</span>
+
+<span class="fc" id="L98">            SummaryReport sumReport = new SummaryReport(allSemesters);</span>
+<span class="fc" id="L99">            System.out.println(sumReport.printMenu());</span>
+
+<span class="fc" id="L101">            DetailedReport detailedProjectionReport = new DetailedReport(allSemesters,detailedProjectReportOutputPath);</span>
+<span class="fc" id="L102">            detailedProjectionReport.writeReport(sumReport.getProjectedCourses());</span>
+        }
+<span class="fc" id="L104">        catch (IOException | IllegalArgumentException e)</span>
+        {
+<span class="fc" id="L106">            System.err.println(&quot;Unable to calculate enrollment projection: &quot; + e.getMessage());</span>
+<span class="fc" id="L107">        }</span>
+<span class="fc" id="L108">    }</span>
+
+    /**
+     * Stop our program if the last user supplied directory (the one they want a projection for) was invalid.
+     * 
+     * @param semesterDirectories the user supplied directories
+     * @param allSemesters the semesters list our program came up with
+     * @throws IllegalArgumentException if the last semester and last directory don't match (semestercode)
+     */
+    public static void checkCurrentSemesterPresent(ArrayList&lt;Path&gt; semesterDirectories, ArrayList&lt;Semester&gt; allSemesters) {
+        //Check if we rejected current
+<span class="fc bfc" id="L119" title="All 2 branches covered.">        if(!semesterDirectories.get(semesterDirectories.size()-1).endsWith(allSemesters.get(allSemesters.size()-1).getSemesterCode()))</span>
+        {
+<span class="fc" id="L121">            String badCurrent = &quot;Current semester path was rejected. Please ensure the path and files within are properly formed.&quot;;</span>
+<span class="fc" id="L122">            System.out.println(badCurrent);</span>
+<span class="fc" id="L123">            throw new IllegalArgumentException(badCurrent);</span>
+        }
+<span class="fc" id="L125">    }</span>
+
+    /**
+     * Removes duplicated semesterDirectories, starting backwards from current (last index).
+     * 
+     * @param semesterDirectories
+     * @return the list of unique semesterDirectories
+     */
+    public static ArrayList&lt;Path&gt; removeDuplicateDirectories(ArrayList&lt;Path&gt; semesterDirectories) {
+<span class="fc" id="L134">        TreeSet&lt;Path&gt; knownDirPaths = new TreeSet&lt;&gt;();</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">        for(int pathIndex = semesterDirectories.size()-1 ; pathIndex &gt;-1; pathIndex--)</span>
+        {
+<span class="fc" id="L137">            Path pathToCheck = semesterDirectories.get(pathIndex);</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">            if(knownDirPaths.contains(pathToCheck))</span>
+            {
+<span class="fc" id="L140">               System.out.println(&quot;Duplcate path entered: \&quot;&quot; + pathToCheck.toString() + &quot;\&quot;, omitting directory.&quot;);</span>
+<span class="fc" id="L141">               semesterDirectories.remove(pathIndex);</span>
+            }
+<span class="fc" id="L143">            knownDirPaths.add(pathToCheck);</span>
+        }
+
+<span class="fc" id="L146">        return semesterDirectories;</span>
+    }
+
+    /**
+     * Basic parsing of potential Semester Directories, determines if they are valid paths to directories.
+     * 
+     * @param potentialSemesterDirectories the directories to consider
+     * @return a collection of valid 0-(N+1) directories
+     */
+    public static ArrayList&lt;Path&gt; parsePotentialSemesterDirectories(String[] potentialSemesterDirectories) {
+
+<span class="fc" id="L157">        ArrayList&lt;Path&gt; semesterDirectories = new ArrayList&lt;&gt;();</span>
+
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        for(int argumentIndex = 0; argumentIndex &lt; potentialSemesterDirectories.length; argumentIndex++)</span>
+        {
+            try {
+
+<span class="fc" id="L163">                Path potentialDirectoryPath = Paths.get(potentialSemesterDirectories[argumentIndex]);</span>
+
+
+<span class="fc bfc" id="L166" title="All 2 branches covered.">                if(Files.isDirectory(potentialDirectoryPath))</span>
+                {
+
+<span class="fc" id="L169">                    semesterDirectories.add(potentialDirectoryPath);</span>
+                }
+
+                
+            } 
+<span class="fc" id="L174">            catch (InvalidPathException e) {</span>
+<span class="fc" id="L175">                System.out.print(&quot;Invalid file path entered, halting program. Confirm a path exists for argument &quot; + (argumentIndex+1)  + &quot;.&quot;);</span>
+<span class="fc" id="L176">            }</span>
+        }
+
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        if(semesterDirectories.size() &lt; 2)</span>
+        {
+<span class="fc" id="L181">            System.out.print(&quot;Too few semester directories entered. Please ensure you have entered at least two semester directories.&quot;);</span>
+        }
+
+<span class="fc" id="L184">        return semesterDirectories;</span>
+    }
+
+
+    /**
+     * Basic parsing of a potential file location for the Detailed Projection Report.
+     * 
+     * Since garbage command line input is common, a bad DPR is indicated through null
+     * NOT an exception; a rubbish path is a bad case, but not exceptional.
+     * 
+     * @param potentialDPRLocationPath a potential file location for the DPR
+     * @return the detailed projection report, or null
+     */
+    public static Path parseDPROutputLocation(String potentialDPRLocationPath) {
+<span class="fc" id="L198">        Path detailedProjectionReportPath = null;</span>
+        try {
+<span class="fc" id="L200">            detailedProjectionReportPath = Paths.get(potentialDPRLocationPath);</span>
+<span class="fc" id="L201">        } catch (InvalidPathException e) {</span>
+<span class="fc" id="L202">            System.out.print(&quot;Invalid location for Detailed Projection Report output requested. Review the path you entered.&quot;);</span>
+
+<span class="fc" id="L204">        }</span>
+        
+<span class="fc" id="L206">        return detailedProjectionReportPath;</span>
+    }
+
+    /**
+     * Basic parsing on a potential cutoff date as a string.
+     * 
+     * @param potentialCutoffDate the cutoff string to consider
+     * @return a LocalDate, either taken from the string or assigned as a default
+     */    
+    public static LocalDate parseCutOffDate(String potentialCutoffDate) {
+        LocalDate cutOffDate;
+        try
+        {
+
+<span class="fc" id="L220">        cutOffDate = LocalDate.parse(potentialCutoffDate);</span>
+        }
+
+<span class="fc" id="L223">        catch (DateTimeParseException e)</span>
+        {
+<span class="fc" id="L225">            System.out.print(</span>
+            &quot;&quot;&quot;
+            Invalid cutoff date (YYYY-MM-DD) provided for the current semester. Setting to registration add deadline (see dates.txt in current semester directory).
+            &quot;&quot;&quot;);
+            //Set a default value for cutOffDate, to be reduced later
+            //This gets assigned to add-deadline when we form a semester in ProjectionReader
+<span class="fc" id="L231">            cutOffDate = LocalDate.of(999999999,10,10);</span>
+<span class="fc" id="L232">        }</span>
+
+<span class="fc" id="L234">        return cutOffDate;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,572 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProjectionReader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">edu.odu.cs.cs350</a> &gt; <span class="el_source">ProjectionReader.java</span></div><h1>ProjectionReader.java</h1><pre class="source lang-java linenums">package edu.odu.cs.cs350;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.Scanner;
+import java.util.Set;
+
+import com.opencsv.CSVReader;
+import com.opencsv.CSVReaderBuilder;
+import com.opencsv.exceptions.CsvException;
+
+/**
+ * 
+ * ProjectionReader; Reads semester directories and creates the proper nesting of Semesters - Snapshots - Courses - Offerings - Sections.
+ * 
+ */
+public class ProjectionReader {
+
+    private ProjectionReader() {
+    }
+
+    /**Headers we want to parse. */
+<span class="fc" id="L34">    private static final Set&lt;String&gt; desiredHeaders = Set.of(</span>
+            &quot;CRN&quot;, &quot;SUBJ&quot;, &quot;CRSE&quot;, &quot;XLST CAP&quot;, &quot;ENR&quot;, &quot;LINK&quot;, &quot;XLST GROUP&quot;, &quot;OVERALL CAP&quot;, &quot;OVERALL ENR&quot;);
+
+    /**
+     * Builds the core data structure of this program.
+     * 
+     * @param semesterDirectories directories containing semester data
+     * @param cutoffDate          for the last semester
+     * @return a list of semesters, each populated with a nesting of Snapshots,
+     *         Courses, Offerings, and Sections
+     * @throws IOException in case of a missing dates.txt file and other I/O related
+     *                     processing
+     */
+    public static ArrayList&lt;Semester&gt; readSemesterDirectory(ArrayList&lt;Path&gt; semesterDirectories, LocalDate cutoffDate)
+            throws IOException {
+<span class="fc" id="L49">        ArrayList&lt;Semester&gt; allSemesters = new ArrayList&lt;&gt;();</span>
+
+        // For all semesters
+<span class="fc" id="L52">        var semesterDirectoriesIterator = semesterDirectories.iterator();</span>
+
+        //TODO: Notify user when they enter a nonexistent directory
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        while (semesterDirectoriesIterator.hasNext()) {</span>
+            // The semester and its status as/not as the last semester
+<span class="fc" id="L57">            Path semesterDirectory = semesterDirectoriesIterator.next();</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">            boolean isLastSemester = !semesterDirectoriesIterator.hasNext();</span>
+<span class="fc" id="L59">            LocalDate semesterCutoff = cutoffDate;</span>
+
+            // Semester information containers
+<span class="fc" id="L62">            ArrayList&lt;EnrollmentSnapshot&gt; snapshots = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L63">            String semesterCode = semesterDirectory.getFileName().toString();</span>
+            LocalDate dateOfPreregistration;
+            LocalDate addDeadlineDate;
+
+            // Get date borders
+<span class="fc" id="L68">            File preRegistrationAddDeadlineDatesFile = new File(</span>
+<span class="fc" id="L69">                    (semesterDirectory.toString() + File.separator + &quot;dates.txt&quot;));</span>
+
+<span class="fc" id="L71">            ArrayList&lt;LocalDate&gt; dateBorders = dateBorders(preRegistrationAddDeadlineDatesFile, semesterCode);</span>
+<span class="fc" id="L72">            dateOfPreregistration = dateBorders.get(0);</span>
+<span class="fc" id="L73">            addDeadlineDate = dateBorders.get(1);</span>
+
+            // User provided cutoff is before preregistration of lastsemester, throw
+<span class="fc bfc" id="L76" title="All 4 branches covered.">            if (isLastSemester &amp;&amp; cutoffDate.isBefore(dateOfPreregistration)) {</span>
+<span class="fc" id="L77">                throw new IllegalArgumentException(</span>
+                        &quot;Please provide a cutoff date on or after the first date of pre-registration for the semester under consideration&quot;);
+            }
+
+<span class="fc" id="L81">            semesterCutoff = chooseCutoff(isLastSemester, semesterCutoff, addDeadlineDate);</span>
+
+<span class="fc" id="L83">            try (DirectoryStream&lt;Path&gt; SemesterSnapshots = Files.newDirectoryStream(semesterDirectory, &quot;*.csv&quot;)) {</span>
+
+                // added debugging output to help user (me) understand which directory it not
+                // valid
+                // System.err.println(&quot;Reading semester directory: &quot; + semesterCode);
+
+<span class="fc" id="L89">                readSnapshots(allSemesters, isLastSemester, semesterCutoff, snapshots, semesterCode,</span>
+                        dateOfPreregistration, addDeadlineDate, SemesterSnapshots);
+
+                // debugging line for finding bad snapshots to figure out why test is failing
+                // System.err.println(&quot;Finished reading: &quot; + semesterCode + &quot; | Valid snapshots
+                // found: &quot; + snapshots.size());
+            }
+
+<span class="fc" id="L97">        }</span>
+        // DirectoryStream fails
+        // catch (IOException e) { System.err.println(String.format(&quot;Error reading
+        // directory %s: &quot; + e.getMessage(), semesterCode));}
+
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        if (allSemesters.size() &lt; 2) {</span>
+
+<span class="fc" id="L104">            throw new IllegalArgumentException(</span>
+                    &quot;Please provide at least two properly named semester directories with snapshots taken between pre-registration and the add deadline.&quot;);
+
+        }
+
+<span class="fc" id="L109">        return allSemesters;</span>
+
+    }
+
+    private static void readSnapshots(ArrayList&lt;Semester&gt; allSemesters, boolean isLastSemester,
+            LocalDate semesterCutoff, ArrayList&lt;EnrollmentSnapshot&gt; snapshots, String semesterCode,
+            LocalDate dateOfPreregistration, LocalDate addDeadlineDate, DirectoryStream&lt;Path&gt; SemesterSnapshots)
+            throws IOException {
+        /* These go inside a Snapshot (Courses, Offering, Sections) */
+
+        // sort list of snapshots by date, so that we can process them in order
+<span class="fc" id="L120">        var sortedSnapshots = sortSnapshotsEagerly(SemesterSnapshots);</span>
+
+        // This flag belongs to THIS loop, so only this method may change it:
+        // a kept post-deadline snapshot uses up the one allowed slot.
+<span class="fc" id="L124">        boolean includedPostDeadlineSnapshot = false;</span>
+
+        // For all snapshots
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        for (Path snapshot : sortedSnapshots) {</span>
+
+            // debugging line for finding bad snapshots to figure out why test is failing
+            // when the files should be accepted
+            // System.err.println(&quot;Checking snapshot: &quot; + snapshot.getFileName());
+
+<span class="fc" id="L133">            includedPostDeadlineSnapshot = processSnapshot(isLastSemester, semesterCutoff, snapshots,</span>
+                    semesterCode, dateOfPreregistration, addDeadlineDate, includedPostDeadlineSnapshot, snapshot);
+<span class="fc" id="L135">        }</span>
+        
+        // TODO: Inform user if they gave us a bad semester (i.e too few snapshots)
+        // TODO: need unique exception if this was the last semester
+        try {
+            // Validate the number of snapshots in the semester then add it
+<span class="fc" id="L141">            validateSnapshotCount(snapshots, semesterCode);</span>
+<span class="fc" id="L142">            allSemesters.add(new Semester(</span>
+                    snapshots,
+                    dateOfPreregistration,
+                    semesterCutoff,
+                    semesterCode,
+                    addDeadlineDate));
+<span class="fc" id="L148">        } catch (Exception e) {</span>
+<span class="fc" id="L149">            System.err.println(String.format(</span>
+<span class="fc" id="L150">                    &quot;Unable to use semester directory %s: %s&quot;, semesterCode, e.getMessage()));</span>
+<span class="fc" id="L151">        }</span>
+<span class="fc" id="L152">    }</span>
+
+    private static boolean processSnapshot(boolean isLastSemester, LocalDate semesterCutoff,
+            ArrayList&lt;EnrollmentSnapshot&gt; snapshots, String semesterCode, LocalDate dateOfPreregistration,
+            LocalDate addDeadlineDate, boolean includedPostDeadlineSnapshot, Path snapshot) throws IOException {
+        // Skip subdirectories
+<span class="fc bfc" id="L158" title="All 2 branches covered.">        if (!Files.isRegularFile(snapshot))</span>
+<span class="fc" id="L159">            return includedPostDeadlineSnapshot;</span>
+
+        // check for bad file names, skip if not a valid date
+        LocalDate snapshotDate;
+        try {
+<span class="fc" id="L164">            snapshotDate = getSnapshotDateValue(snapshot);</span>
+<span class="fc" id="L165">        } catch (DateTimeParseException e) {</span>
+<span class="fc" id="L166">            System.err.println(String.format(</span>
+<span class="fc" id="L167">                    &quot;Error reading csv file %s in semester directory %s: &quot; + e.getMessage(),</span>
+<span class="fc" id="L168">                    snapshot.getFileName().toString(), semesterCode));</span>
+<span class="fc" id="L169">            return includedPostDeadlineSnapshot;</span>
+<span class="fc" id="L170">        }</span>
+
+        // Ignore snapshot if outside bounds
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        if (checkSkipSection(isLastSemester, snapshotDate, semesterCutoff,</span>
+                dateOfPreregistration, addDeadlineDate, includedPostDeadlineSnapshot)) {
+
+<span class="fc" id="L176">            return includedPostDeadlineSnapshot;</span>
+        }
+
+        // the flag lives here.
+<span class="fc bfc" id="L180" title="All 4 branches covered.">        if (!isLastSemester &amp;&amp; snapshotDate.isAfter(addDeadlineDate)) {</span>
+<span class="fc" id="L181">            includedPostDeadlineSnapshot = true;</span>
+        }
+
+<span class="fc" id="L184">        ArrayList&lt;Course&gt; snapshotCourses = new ArrayList&lt;&gt;();</span>
+
+        // Every course offering must match coursename
+<span class="fc" id="L187">        HashMap&lt;String, ArrayList&lt;Offering&gt;&gt; snapshotOfferingGroups = new HashMap&lt;&gt;();</span>
+
+        // Some sections do not have a particular offering group they map to. In this
+        // case, we must store theses offerings and sections discretely.
+<span class="fc" id="L191">        ArrayList&lt;Offering&gt; soleSectionOfferings = new ArrayList&lt;&gt;();</span>
+
+        // Every offering section must match crossListGroup
+<span class="fc" id="L194">        HashMap&lt;String, ArrayList&lt;Section&gt;&gt; snapshotSectionGroups = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L196">        try (CSVReader snapshotReader = new CSVReaderBuilder(Files.newBufferedReader(snapshot))</span>
+<span class="fc" id="L197">                .withSkipLines(0)</span>
+<span class="fc" id="L198">                .build()) {</span>
+
+<span class="fc" id="L200">            ReadCSVRows(snapshots, semesterCode, snapshot, snapshotDate, snapshotCourses,</span>
+                    snapshotOfferingGroups, soleSectionOfferings, snapshotSectionGroups, snapshotReader);
+
+            // debugging line for finding bad snapshots to figure out why test is failing
+            // when the files should be accepted
+            // System.err.println(&quot;Added snapshot: &quot; + snapshot.getFileName());
+        }
+<span class="fc" id="L207">        return includedPostDeadlineSnapshot;</span>
+    }
+
+    private static void ReadCSVRows(ArrayList&lt;EnrollmentSnapshot&gt; snapshots, String semesterCode, Path snapshot,
+            LocalDate snapshotDate, ArrayList&lt;Course&gt; snapshotCourses,
+            HashMap&lt;String, ArrayList&lt;Offering&gt;&gt; snapshotOfferingGroups, ArrayList&lt;Offering&gt; soleSectionOfferings,
+            HashMap&lt;String, ArrayList&lt;Section&gt;&gt; snapshotSectionGroups, CSVReader snapshotReader) {
+        try {
+
+<span class="fc" id="L216">            List&lt;String[]&gt; allFields = snapshotReader.readAll();</span>
+<span class="fc" id="L217">            List&lt;String[]&gt; rows = allFields.subList(1, allFields.size() - 1);</span>
+
+<span class="fc" id="L219">            HashMap&lt;String, Integer&gt; headersToColumns = getDesiredHeaderIndices(allFields.get(0));</span>
+
+            // For all sections
+<span class="fc bfc" id="L222" title="All 2 branches covered.">            for (String[] fields : rows) {</span>
+
+<span class="fc" id="L224">                Section rowSection = createSection(fields, headersToColumns);</span>
+
+                // We do not consider labs and recitations
+<span class="fc bfc" id="L227" title="All 2 branches covered.">                if (!rowSection.isLecture())</span>
+<span class="fc" id="L228">                    continue;</span>
+
+<span class="fc" id="L230">                divideSectionsIntoOfferingGroups(soleSectionOfferings, snapshotSectionGroups,</span>
+                        rowSection);
+
+                // System.out.println(rowSection);
+<span class="fc" id="L234">            }</span>
+
+<span class="fc" id="L236">            formCoursesFromAllOfferings(snapshotCourses, snapshotOfferingGroups, soleSectionOfferings,</span>
+                    snapshotSectionGroups);
+
+            // Create a snapshot from our list of courses taken in this snapshot
+<span class="fc" id="L240">            snapshots.add(new EnrollmentSnapshot(snapshotCourses, snapshotDate));</span>
+        }
+        // getDesiredHeaderIndices fails
+<span class="fc" id="L243">        catch (IOException | CsvException e) {</span>
+<span class="fc" id="L244">            System.err.println(String.format(</span>
+<span class="fc" id="L245">                    &quot;Error reading csv file %s in semester directory %s: &quot; + e.getMessage(),</span>
+<span class="fc" id="L246">                    snapshot.getFileName().toString(), semesterCode));</span>
+
+<span class="fc" id="L248">        }</span>
+<span class="fc" id="L249">    }</span>
+
+    /**
+     * Decides whether a snapshot file should be skipped.
+     *
+     * Pure decision function: it never changes state; the caller owns the
+     * includedPostDeadlineSnapshot flag and updates it after keeping a
+     * post-deadline snapshot.
+     *
+     * @param isLastSemester               true for the semester being projected
+     * @param snapshotDate                 the parsed date of the snapshot file
+     * @param semesterCutoff               the cutoff in effect for this semester
+     * @param dateOfPreregistration        the semester's pre-registration date
+     * @param addDeadlineDate              the semester's add deadline
+     * @param includedPostDeadlineSnapshot whether this historical semester has
+     *                                     already kept its one allowed
+     *                                     post-deadline snapshot
+     * @return true if the snapshot must be skipped
+     */
+    private static boolean checkSkipSection(boolean isLastSemester, LocalDate snapshotDate,
+            LocalDate semesterCutoff, LocalDate dateOfPreregistration, LocalDate addDeadlineDate,
+            boolean includedPostDeadlineSnapshot) {
+
+        // The user-supplied cutoff applies only to the semester being projected.
+        // Historical semesters are cut off at their own add deadline (see
+        // chooseCutoff); their single allowed post-deadline snapshot is
+        // handled below, so it must NOT be skipped by this bounds check.
+<span class="fc bfc" id="L276" title="All 4 branches covered.">        if (isLastSemester &amp;&amp; snapshotDate.isAfter(semesterCutoff)) {</span>
+<span class="fc" id="L277">            return true;</span>
+        }
+
+<span class="fc bfc" id="L280" title="All 2 branches covered.">        if (snapshotDate.isBefore(dateOfPreregistration)) {</span>
+<span class="fc" id="L281">            return true;</span>
+        }
+
+        /**
+         * Historical semesters keep at most ONE post-deadline snapshot
+         * (the first, since we're sorted). A point past 1.0 is required to
+         * interpolate h(1.0), keeping all post-deadline files would skew
+         * the interpolation so only the first one is kept
+         */
+<span class="fc bfc" id="L290" title="All 2 branches covered.">        return !isLastSemester</span>
+<span class="fc bfc" id="L291" title="All 4 branches covered.">                &amp;&amp; snapshotDate.isAfter(addDeadlineDate)</span>
+                &amp;&amp; includedPostDeadlineSnapshot;// reads flag instead of writing it
+    }
+
+    private static ArrayList&lt;Path&gt; sortSnapshotsEagerly(DirectoryStream&lt;Path&gt; SemesterSnapshots) {
+<span class="fc" id="L296">        ArrayList&lt;Path&gt; sortedSnapshots = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L297" title="All 2 branches covered.">        for (Path snapshot : SemesterSnapshots) {</span>
+<span class="fc" id="L298">            sortedSnapshots.add(snapshot);</span>
+<span class="fc" id="L299">        }</span>
+<span class="fc" id="L300">        sortedSnapshots.sort(Comparator.naturalOrder());</span>
+<span class="fc" id="L301">        return sortedSnapshots;</span>
+    }
+
+    /**
+     * Verifies that a semester contains enough enrollment snapshots to be used
+     * for projection calculations.
+     *
+     * @param snapshots    the snapshots found for the semester
+     * @param semesterCode the semester being checked
+     * @throws IOException if fewer than two valid snapshots are available
+     */
+    private static void validateSnapshotCount(
+            ArrayList&lt;EnrollmentSnapshot&gt; snapshots,
+            String semesterCode) throws IOException {
+
+<span class="fc bfc" id="L316" title="All 2 branches covered.">        if (snapshots.size() &lt; 2) {</span>
+<span class="fc" id="L317">            throw new IOException(</span>
+<span class="fc" id="L318">                    String.format(&quot;Insufficient snapshots in %s.&quot;, semesterCode));</span>
+        }
+<span class="fc" id="L320">    }</span>
+
+    /**
+     * Forms a section.
+     * 
+     * IMPORTANT: If there is no provided cap; this means the course is sole
+     * offering,
+     * thus we assign cap to XLSTCAP, since this is the only cap of enrollment for
+     * the implicit section - offering pair.
+     * 
+     * @param fields           the csv fields we are drawing our section from
+     * @param headersToColumns mapping from header labels to column rows
+     * @return a fully formed section
+     * @throws NumberFormatException when we fail parse a field we expect to be
+     *                               numeric
+     */
+    public static Section createSection(String[] fields, HashMap&lt;String, Integer&gt; headersToColumns)
+            throws NumberFormatException {
+
+        // Define what we want from the row and create the section
+<span class="fc" id="L340">        int CRN = Integer.parseInt(fields[headersToColumns.get(&quot;CRN&quot;)]);</span>
+<span class="fc" id="L341">        String subject = fields[headersToColumns.get(&quot;SUBJ&quot;)];</span>
+<span class="fc" id="L342">        String CourseNumber = fields[headersToColumns.get(&quot;CRSE&quot;)];</span>
+<span class="fc" id="L343">        int CrossListCap = Integer.parseInt(fields[headersToColumns.get(&quot;XLST CAP&quot;)]);</span>
+<span class="fc" id="L344">        int ENR = Integer.parseInt(fields[headersToColumns.get(&quot;ENR&quot;)]);</span>
+<span class="fc" id="L345">        String LINK = fields[headersToColumns.get(&quot;LINK&quot;)];</span>
+<span class="fc" id="L346">        String crossListGroup = fields[headersToColumns.get(&quot;XLST GROUP&quot;)];</span>
+<span class="fc bfc" id="L347" title="All 2 branches covered.">        int overallEnrollmentCap = (fields[headersToColumns.get(&quot;OVERALL CAP&quot;)].trim().isEmpty())</span>
+<span class="fc" id="L348">                ? CrossListCap</span>
+<span class="fc" id="L349">                : Integer.parseInt(fields[headersToColumns.get(&quot;OVERALL CAP&quot;)]);</span>
+<span class="fc" id="L350">        int overallEnrollment = Integer.parseInt(fields[headersToColumns.get(&quot;OVERALL ENR&quot;)]);</span>
+<span class="fc" id="L351">        Section rowSection = new Section(CRN, subject, CourseNumber, CrossListCap, ENR, LINK, crossListGroup,</span>
+                overallEnrollmentCap, overallEnrollment);
+<span class="fc" id="L353">        return rowSection;</span>
+    }
+
+    /**
+     * Logic for choosing cutoff date for semesters.
+     * Core Implementation of User Story [ Command Line Input : Cutoff Date ]
+     * 
+     * @param isLastSemester  if the dates belong to the last semester, the one we
+     *                        are projecting
+     * @param semesterCutoff  the semester cutoff actually applied to the semester,
+     *                        initialized from CLI input
+     * @param addDeadlineDate the add deadline, initialized from dates.txt
+     * @return the proper cutoff
+     */
+    public static LocalDate chooseCutoff(boolean isLastSemester, LocalDate semesterCutoff, LocalDate addDeadlineDate) {
+
+        // Cutoff is always determined by dates.txt unless we are evaluating the
+        // current(last) semester
+<span class="fc bfc" id="L371" title="All 2 branches covered.">        if (!isLastSemester)</span>
+<span class="fc" id="L372">            return addDeadlineDate;</span>
+
+        // In which case we will choose the most conservative cutoff
+<span class="fc bfc" id="L375" title="All 2 branches covered.">        if (semesterCutoff.compareTo(addDeadlineDate) &gt; 0)</span>
+<span class="fc" id="L376">            return addDeadlineDate;</span>
+
+<span class="fc" id="L378">        return semesterCutoff;</span>
+    }
+
+    /**
+     * Forms courses from the appropriate sole-section and multi-section offerings.
+     * 
+     * @param snapshotCourses        the list of courses populated
+     * @param snapshotOfferingGroups the collection of multi-section offerings,
+     *                               mapped to course name
+     * @param soleSectionOfferings   the collection of sole-section offerings
+     * @param snapshotSectionGroups  the collection of multi-section sections,
+     *                               mapped to multi-section offering identifier
+     *                               (crossListGroup)
+     */
+    public static void formCoursesFromAllOfferings(
+            ArrayList&lt;Course&gt; snapshotCourses,
+            HashMap&lt;String, ArrayList&lt;Offering&gt;&gt; snapshotOfferingGroups,
+            ArrayList&lt;Offering&gt; soleSectionOfferings,
+            HashMap&lt;String, ArrayList&lt;Section&gt;&gt; snapshotSectionGroups) {
+
+        // Create an offering that has sections with all matching crossListGroups
+        // Map this offering to its coursename
+<span class="fc bfc" id="L400" title="All 2 branches covered.">        for (ArrayList&lt;Section&gt; crossListGroupSections : snapshotSectionGroups.values()) {</span>
+<span class="fc" id="L401">            Offering crossListGroupOffering = new Offering(crossListGroupSections);</span>
+
+<span class="fc" id="L403">            String offeringCourse = crossListGroupOffering.getCourseName();</span>
+
+<span class="fc bfc" id="L405" title="All 2 branches covered.">            if (snapshotOfferingGroups.containsKey(offeringCourse)) {</span>
+<span class="fc" id="L406">                snapshotOfferingGroups.get(offeringCourse).add(crossListGroupOffering);</span>
+            } else {
+<span class="fc" id="L408">                snapshotOfferingGroups.put(offeringCourse, new ArrayList&lt;&gt;(List.of(crossListGroupOffering)));</span>
+            }
+<span class="fc" id="L410">        }</span>
+
+        // Append sole section offerings as distinct offerings of a particular
+        // coursename
+<span class="fc bfc" id="L414" title="All 2 branches covered.">        for (Offering soleOffering : soleSectionOfferings) {</span>
+<span class="fc" id="L415">            String soleOfferingCourseName = soleOffering.getCourseName();</span>
+<span class="fc bfc" id="L416" title="All 2 branches covered.">            if (snapshotOfferingGroups.containsKey(soleOfferingCourseName)) {</span>
+<span class="fc" id="L417">                snapshotOfferingGroups.get(soleOfferingCourseName).add(soleOffering);</span>
+            } else {
+<span class="fc" id="L419">                snapshotOfferingGroups.put(soleOfferingCourseName, new ArrayList&lt;&gt;(List.of(soleOffering)));</span>
+            }
+<span class="fc" id="L421">        }</span>
+
+        // Create and add a course from our complete list of offerings
+<span class="fc bfc" id="L424" title="All 2 branches covered.">        for (Entry&lt;String, ArrayList&lt;Offering&gt;&gt; courseOfferingPair : snapshotOfferingGroups.entrySet()) {</span>
+<span class="fc" id="L425">            snapshotCourses.add(new Course(courseOfferingPair.getValue()));</span>
+<span class="fc" id="L426">        }</span>
+<span class="fc" id="L427">    }</span>
+
+    /**
+     * Directs a paricular section into either a map of sections linked to the same
+     * offering or a collection of sections who comprise one unique offering.
+     * 
+     * @param soleSectionOfferings  a collection of sections which comprise singular
+     *                              offerings
+     * @param snapshotSectionGroups a map of offerings to collections of linked
+     *                              sections
+     * @param rowSection            the section under consideration
+     */
+    public static void divideSectionsIntoOfferingGroups(
+            ArrayList&lt;Offering&gt; soleSectionOfferings,
+            HashMap&lt;String, ArrayList&lt;Section&gt;&gt; snapshotSectionGroups,
+            Section rowSection) {
+
+        // If section does not have an crossListGroup we can simply add it to the other
+        // solo
+        // offerings
+<span class="fc bfc" id="L447" title="All 2 branches covered.">        if (rowSection.crossListGroup().equals(&quot;None&quot;)) {</span>
+<span class="fc" id="L448">            Offering soleSectionOffering = new Offering(List.of(rowSection));</span>
+<span class="fc" id="L449">            soleSectionOfferings.add(soleSectionOffering);</span>
+<span class="fc" id="L450">        }</span>
+        // If the section has an crossListGroup, we must map it to that group for
+        // organized
+        // appending
+        else {
+<span class="fc" id="L455">            String singleOfferingIdentifier = rowSection.crossListGroup();</span>
+
+            /*
+             * Note: CourseNumber (CRSE) CANNOT be included in this as this will prevent
+             * proper grouping of
+             * 400/500 level mixed courses
+             * Even subject is not a reliable component of this, however is is acceptable
+             * since
+             * all files we will process are guarenteed to
+             * only have CS courses.
+             */
+
+<span class="fc bfc" id="L467" title="All 2 branches covered.">            if (snapshotSectionGroups.containsKey(singleOfferingIdentifier)) {</span>
+
+<span class="fc" id="L469">                snapshotSectionGroups.get(singleOfferingIdentifier).add(rowSection);</span>
+            } else {
+<span class="fc" id="L471">                snapshotSectionGroups.put(singleOfferingIdentifier, new ArrayList&lt;&gt;(List.of(rowSection)));</span>
+            }
+        }
+<span class="fc" id="L474">    }</span>
+
+    /**
+     * Finds the column numbers for our desired headers.
+     * 
+     * @param headers the header row to check
+     * @return a map of desired headers to column indices
+     * @throws IOException if any of the desired headers are absent
+     */
+    public static HashMap&lt;String, Integer&gt; getDesiredHeaderIndices(String[] headers) throws IOException {
+
+<span class="fc" id="L485">        HashMap&lt;String, Integer&gt; headersToColumns = new HashMap&lt;&gt;();</span>
+
+<span class="fc bfc" id="L487" title="All 2 branches covered.">        for (int headerIndex = 0; headerIndex &lt; headers.length; headerIndex++) {</span>
+<span class="fc" id="L488">            String headerFieldValue = headers[headerIndex];</span>
+<span class="fc bfc" id="L489" title="All 2 branches covered.">            if (desiredHeaders.contains(headerFieldValue)) {</span>
+<span class="fc" id="L490">                headersToColumns.put(headerFieldValue, headerIndex);</span>
+            }
+
+        }
+
+<span class="fc" id="L495">        ArrayList&lt;String&gt; missingHeaders = new ArrayList&lt;&gt;();</span>
+
+<span class="fc bfc" id="L497" title="All 2 branches covered.">        for (String desiredHeader : desiredHeaders) {</span>
+<span class="fc bfc" id="L498" title="All 2 branches covered.">            if (!headersToColumns.containsKey(desiredHeader)) {</span>
+<span class="fc" id="L499">                missingHeaders.add(desiredHeader);</span>
+            }
+<span class="fc" id="L501">        }</span>
+
+        // This pretty much just exists for Unit Testing
+<span class="fc bfc" id="L504" title="All 2 branches covered.">        if (!missingHeaders.isEmpty()) {</span>
+<span class="fc" id="L505">            missingHeaders.sort(Comparator.naturalOrder());// hashing means these could be in any order; can't easily</span>
+                                                           // test a randomized string so sort
+
+<span class="fc" id="L508">            StringBuilder allMissingHeaders = new StringBuilder();</span>
+<span class="fc bfc" id="L509" title="All 2 branches covered.">            for (int missingHeaderIndex = 0; missingHeaderIndex &lt; missingHeaders.size(); missingHeaderIndex++) {</span>
+<span class="fc" id="L510">                allMissingHeaders.append(missingHeaders.get(missingHeaderIndex));</span>
+<span class="fc" id="L511">                allMissingHeaders.append(&quot;, &quot;);</span>
+            }
+<span class="fc" id="L513">            allMissingHeaders.deleteCharAt(allMissingHeaders.length() - 1);// remove extra space</span>
+<span class="fc" id="L514">            allMissingHeaders.deleteCharAt(allMissingHeaders.length() - 1);// remove extra comma</span>
+
+<span class="fc" id="L516">            throw new IOException(String.format(&quot;Illegally formed csv file. The field(s) [%s] are missing.&quot;,</span>
+<span class="fc" id="L517">                    allMissingHeaders.toString()));</span>
+
+        }
+
+<span class="fc" id="L521">        return headersToColumns;</span>
+    }
+
+    /**
+     * Computes the preRegistration and addDeadline.
+     * 
+     * @param registrationDatesFile the dates.txt file, which contains our cutoffs
+     * @param semesterCode          the semester we are checking
+     * @return an arraylist containing the two dates
+     * @throws FileNotFoundException
+     */
+    public static ArrayList&lt;LocalDate&gt; dateBorders(File registrationDatesFile, String semesterCode) throws IOException {
+        LocalDate dateOfPreregistration;
+        LocalDate addDeadlineDate;
+
+<span class="fc" id="L536">        try (Scanner myReader = new Scanner(registrationDatesFile)) {</span>
+            try {
+                // before reading date, check that it exists
+<span class="fc bfc" id="L539" title="All 2 branches covered.">                if (!myReader.hasNext()) {</span>
+<span class="fc" id="L540">                    throw new IOException(String.format(&quot;Insufficient dates in %s&quot;, semesterCode));</span>
+                }
+
+<span class="fc" id="L543">                dateOfPreregistration = LocalDate.parse(myReader.next());</span>
+
+                // before reading date, check that it exists
+<span class="fc bfc" id="L546" title="All 2 branches covered.">                if (!myReader.hasNext()) {</span>
+<span class="fc" id="L547">                    throw new IOException(String.format(&quot;Insufficient dates in %s&quot;, semesterCode));</span>
+                }
+
+<span class="fc" id="L550">                addDeadlineDate = LocalDate.parse(myReader.next());</span>
+
+<span class="fc" id="L552">            } catch (DateTimeParseException e) {</span>
+                // Bad dates.txt strings, throw IOException
+<span class="fc" id="L554">                throw new IOException(String.format(&quot;Invalid dates.txt file in %s&quot;, semesterCode));</span>
+<span class="fc" id="L555">            }</span>
+
+        }
+        // We can't proceed without dates.txt, so we have to throw
+<span class="fc" id="L559">        catch (FileNotFoundException e) {</span>
+<span class="fc" id="L560">            throw new IOException(String.format(&quot;Missing dates.txt in %s&quot;, semesterCode));</span>
+<span class="fc" id="L561">        }</span>
+
+<span class="fc" id="L563">        return new ArrayList&lt;&gt;(List.of(dateOfPreregistration, addDeadlineDate));</span>
+
+    }
+
+    private static LocalDate getSnapshotDateValue(Path snapshot) {
+<span class="fc" id="L568">        return LocalDate.parse((snapshot.getFileName().toString()).replace(&quot;.csv&quot;, &quot;&quot;));</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

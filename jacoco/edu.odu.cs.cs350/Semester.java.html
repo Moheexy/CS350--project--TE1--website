@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Semester.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">edu.odu.cs.cs350</a> &gt; <span class="el_source">Semester.java</span></div><h1>Semester.java</h1><pre class="source lang-java linenums">package edu.odu.cs.cs350;
+
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+//TODO: This class, and others along the Semester-Snapshot-Course-Offering-Section hierarchy could use more Java checklist methods, particularly equals(), compareto() and toString()
+/**
+ * A Semester; for our purposes it is composed of a title, code, pre-registration and add-deadline dates, as well as several snapshots of enrollment relevent to the semester.
+ */
+public class Semester {
+
+    /** Human Readable semester title (e.g Spring 2021). */
+    private final String semesterTitle;
+    /** The actual semestercode, needed for validation in main. */
+    private final String semesterCode;
+
+    /** The date of preregistration. */
+    private final LocalDate dateOfPreregistration;
+    /** The addDeadlineDate. */
+    private final LocalDate addDeadline;
+    /** This is not simply addDeadline, as it could be either the deadline from dates.txt, or the user supplied cutoff. */
+    private final LocalDate effectiveDeadline;
+    /** The snapshots that we have for this semester. */
+    private final ArrayList&lt;EnrollmentSnapshot&gt; enrollmentSnapshots;
+
+    /**
+     * Constructor for semester.
+     * 
+     * @param snapshots the snapshots of the semester in questions
+     * @param preregistration the pre-registration date
+     * @param effectiveDeadline the effective deadline; relevent for the last semester where user supplied arg may preceed the addDeadline
+     * @param semesterCode designation for the semester, translated into a tile
+     * @param addDeadline the add deadline date
+     */
+    public Semester(List&lt;EnrollmentSnapshot&gt; snapshots, LocalDate preregistration, LocalDate effectiveDeadline, String semesterCode, LocalDate addDeadline)
+<span class="fc" id="L39">    {</span>
+<span class="fc" id="L40">        enrollmentSnapshots = enforceNonEmptySortedSnapshots(snapshots);</span>
+<span class="fc" id="L41">        dateOfPreregistration = preregistration;</span>
+<span class="fc" id="L42">        this.effectiveDeadline = effectiveDeadline;</span>
+<span class="fc" id="L43">        checkDates(preregistration, effectiveDeadline);</span>
+<span class="fc" id="L44">        semesterTitle =  parseSemesterCodeToTitle(semesterCode);</span>
+<span class="fc" id="L45">        this.semesterCode = semesterCode;</span>
+<span class="fc" id="L46">        this.addDeadline = addDeadline;</span>
+
+<span class="fc" id="L48">    }</span>
+
+    /**
+     * Invariant mechanism to force legitimate dates.
+     * @param dateOfPreregistration pre-registration date
+     * @param deadlineDate add-deadline date
+     * @throws IllegalArgumentException if pre-registration is after add deadline 
+     */
+    public static void checkDates(LocalDate dateOfPreregistration, LocalDate deadlineDate ) throws IllegalArgumentException
+    {
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if(dateOfPreregistration.compareTo(deadlineDate) &gt; 0 )</span>
+        {
+<span class="fc" id="L60">            throw new IllegalArgumentException(&quot;Error with provided dates: add deadline is before preregistration&quot;);</span>
+        }
+<span class="fc" id="L62">    }</span>
+
+    /**
+     * Invariant mechanism to force at least 2 snapshots per semester.
+     * And order snapshots by date (most recent = last).
+     * 
+     * @param snapshotList the snapshots to check
+     * @return the snapshots, if legitimate
+     * @throws IllegalArgumentException if size &lt; 2
+     */
+    public static ArrayList&lt;EnrollmentSnapshot&gt; enforceNonEmptySortedSnapshots(List&lt;EnrollmentSnapshot&gt; snapshotList)
+    {
+
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if(snapshotList.size() &lt; 2)</span>
+        {
+<span class="fc" id="L77">            throw new IllegalArgumentException(&quot;A semester must have at least two snapshots to be considered.&quot;);</span>
+        }
+
+<span class="fc" id="L80">        var nonEmptySnaps =  new ArrayList&lt;&gt;(snapshotList);</span>
+<span class="fc" id="L81">        nonEmptySnaps.sort(Comparator.comparing(EnrollmentSnapshot::getSnapShotDateValue));</span>
+<span class="fc" id="L82">        return nonEmptySnaps;</span>
+    }
+    
+    /**
+     * Derives the semester title from the semester code.
+     * 
+     * @param semesterCode semester code (e.g 202010)
+     * @return semester title (e.g Spring 2020)
+     */
+    public static String parseSemesterCodeToTitle(String semesterCode)
+    {
+<span class="fc" id="L93">        String semesterPeriod = semesterCode.substring(semesterCode.length()-2, semesterCode.length());</span>
+
+<span class="fc bfc" id="L95" title="All 4 branches covered.">        switch (semesterPeriod) {</span>
+<span class="fc" id="L96">            case &quot;10&quot; -&gt; semesterPeriod = &quot;Fall &quot;;</span>
+<span class="fc" id="L97">            case &quot;20&quot; -&gt; semesterPeriod = &quot;Spring &quot;;</span>
+<span class="fc" id="L98">            case &quot;30&quot; -&gt; semesterPeriod = &quot;Summer &quot;;</span>
+<span class="fc" id="L99">            default -&gt; throw new IllegalArgumentException(&quot;Semester codes must end with 10, 20, or 30&quot;);</span>
+        }
+
+
+<span class="fc" id="L103">        return semesterPeriod +  semesterCode.substring(0, semesterCode.length()-2);</span>
+    }
+
+    /**
+     * Calculates % of enrollment period passed for summary projection report header.
+     * 
+     * @param preregistration date of pre-registration
+     * @param addDeadline date of add-deadline
+     * @param snapDate date of snapshot
+     * @return the % (0-100) of time passed from pre-registration to the add-deadline as of the snapshot date
+     */
+    public static long enrollmentPeriodPassed(LocalDate preregistration, LocalDate addDeadline, LocalDate snapDate){
+
+        //finds the difference between entered dates to calculate total enrollment period time and the number of days into it
+<span class="fc" id="L117">        long percent = 100;</span>
+<span class="fc" id="L118">        long totalPeriod = ChronoUnit.DAYS.between(preregistration, addDeadline);</span>
+<span class="fc" id="L119">        long daysPassed = ChronoUnit.DAYS.between(preregistration, snapDate);</span>
+
+        //throws exception if add deadline is somehow before pregristration dates
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        if(totalPeriod &lt; 0){</span>
+<span class="fc" id="L123">            throw new IllegalArgumentException(&quot;Error with provided dates: add deadline is before preregistration&quot;);</span>
+        }
+
+        //returns 100% if add deadline is day of preregistration
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        if (totalPeriod == 0){ return percent;}</span>
+        
+        //calculation for % of enrollment period passed
+<span class="fc" id="L130">        percent = daysPassed*100/totalPeriod;</span>
+        
+        //sets anything &lt; 0 to 0% and &gt; 100 to 100% and returns % value
+<span class="fc" id="L133">        return Math.max(0, Math.min(100, percent));</span>
+    }
+
+    /**
+     * 
+     * @return the human readable semester title
+     */
+    public String getSemesterTitle() {
+<span class="fc" id="L141">        return semesterTitle;</span>
+    }
+
+    /**
+     * 
+     * @return the pre-registration date
+     */
+    public LocalDate findPreregistrationDate() {
+<span class="fc" id="L149">        return dateOfPreregistration;</span>
+    }
+
+    /**
+     * 
+     * @return the effective deadline date
+     */
+    public LocalDate getEffectiveDeadline() {
+<span class="fc" id="L157">        return effectiveDeadline;</span>
+    }
+
+    /**
+     * 
+     * @return the enrollment snapshots
+     */
+    public ArrayList&lt;EnrollmentSnapshot&gt; getEnrollmentSnapshots() {
+<span class="fc" id="L165">        return enrollmentSnapshots;</span>
+    }
+
+    /**
+     * 
+     * @return the add deadline
+     */
+    public LocalDate getAddDeadline() {
+<span class="fc" id="L173">        return addDeadline;</span>
+    }
+
+    /**
+     * 
+     * @return the semester code
+     */
+    public String getSemesterCode() {
+<span class="fc" id="L181">        return semesterCode;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

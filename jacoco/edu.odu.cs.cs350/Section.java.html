@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Section.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">edu.odu.cs.cs350</a> &gt; <span class="el_source">Section.java</span></div><h1>Section.java</h1><pre class="source lang-java linenums">package edu.odu.cs.cs350;
+
+/**
+ * 
+ * A course Section. Composed of
+ * @param CRN unique identifier for each section
+ * @param subject Identifies the department offering the course
+ * @param CourseNumber Course number (e.g CS - 350)
+ * @param CrossListCap (cross-list cap) The maximum number of students that can enroll in this section.
+ * @param ENR Number of students enrolled in this section
+ * @param LINK labs or recitations associated lecture
+ * @param crossListGroup (cross-list group) links section(s) to an offering
+ * @param overallEnrollmentCap maximum number of students that can enroll in the offering to which this section belong
+ * @param overallEnrollment total number of students enrolled in the offering to which this section belongs
+ */
+public record Section(
+     int CRN,
+     String subject,
+     String CourseNumber,
+     int CrossListCap,
+     int ENR,
+     String LINK,
+     String crossListGroup,
+     int overallEnrollmentCap,
+     int overallEnrollment
+    ){
+
+    /**
+     * Section record.
+     * 
+     * @param CRN unique identifier for each section
+     * @param subject Identifies the department offering the course
+     * @param CourseNumber Course number (e.g CS - 350)
+     * @param CrossListCap (cross-list cap) The maximum number of students that can enroll in this section.
+     * @param ENR Number of students enrolled in this section
+     * @param LINK labs or recitations associated lecture
+     * @param crossListGroup (cross-list group) links section(s) to an offering
+     * @param overallEnrollmentCap maximum number of students that can enroll in the offering to which this section belong
+     * @param overallEnrollment total number of students enrolled in the offering to which this section belongs
+     */
+<span class="fc" id="L41">    public Section{</span>
+
+<span class="fc" id="L43">        checkCRN(CRN);</span>
+
+<span class="fc" id="L45">        checkCrossListCap(CrossListCap);</span>
+
+<span class="fc" id="L47">        enforceEnrollmentPositive(ENR);</span>
+
+
+<span class="fc" id="L50">        checkLinkMatchesInvariant(LINK);</span>
+                
+<span class="fc" id="L52">        LINK = assignNullLinkToNone(LINK);</span>
+
+<span class="fc" id="L54">        crossListGroup = assignCrossListGroupToNone(crossListGroup);</span>
+
+<span class="fc" id="L56">        checkOverallEnrollmentCap(overallEnrollmentCap);</span>
+
+<span class="fc" id="L58">        checkOverallEnrollment(overallEnrollment);</span>
+
+        //This invariant does not hold in real data
+        // if(ENR &gt; XLSTCAP)
+        // {
+        //     throw new IllegalArgumentException(&quot;Enrollment cannot exceed cap for section.&quot;);
+        // }
+        //This invariant does not hold in real data
+        // if(overallEnrollment &gt; overallEnrollmentCap)
+        // {
+        //     throw new IllegalArgumentException(&quot;Overall enrollment must be less than overall cap.&quot;);
+        // }
+
+
+<span class="fc" id="L72">    }</span>
+
+    private void checkOverallEnrollment(int overallEnrollment1) throws IllegalArgumentException {
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (overallEnrollment1 &lt; 0) {</span>
+<span class="fc" id="L76">            throw new IllegalArgumentException(&quot;Overall enrollment must be non-negative.&quot;);</span>
+        }
+<span class="fc" id="L78">    }</span>
+
+    private void checkOverallEnrollmentCap(int overallEnrollmentCap1) throws IllegalArgumentException {
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        if (overallEnrollmentCap1 &lt; 0) {</span>
+<span class="fc" id="L82">            throw new IllegalArgumentException(&quot;Enrollment cap must be non-negative.&quot;);</span>
+        }
+<span class="fc" id="L84">    }</span>
+
+    private String assignCrossListGroupToNone(String crossListGroup1) {
+<span class="fc bfc" id="L87" title="All 4 branches covered.">        if (crossListGroup1 == null || crossListGroup1.isBlank()) {</span>
+<span class="fc" id="L88">            return &quot;None&quot;;</span>
+        }
+<span class="fc" id="L90">        return crossListGroup1;</span>
+    }
+
+    private String assignNullLinkToNone(String LINK1) {
+<span class="fc bfc" id="L94" title="All 4 branches covered.">        if (LINK1 == null || LINK1.isBlank()) {</span>
+<span class="fc" id="L95">            return &quot;None&quot;;</span>
+        }
+<span class="fc" id="L97">        return LINK1;</span>
+    }
+
+    private void checkLinkMatchesInvariant(String LINK1) throws IllegalArgumentException {
+<span class="fc bfc" id="L101" title="All 4 branches covered.">        if (LINK1 != null &amp;&amp; !LINK1.isBlank()) {</span>
+<span class="fc" id="L102">            char LinkEnd = LINK1.charAt(LINK1.length() - 1);</span>
+<span class="fc bfc" id="L103" title="All 6 branches covered.">            if(LinkEnd != '1' &amp;&amp; LinkEnd != '2' &amp;&amp; LinkEnd != '3')</span>
+            {
+<span class="fc" id="L105">                throw new IllegalArgumentException(&quot;If present, linked sections must be specified with 1,2, or 3 as final character.&quot;);</span>
+            }
+        }
+<span class="fc" id="L108">    }</span>
+
+    private void enforceEnrollmentPositive(int ENR1) throws IllegalArgumentException {
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        if (ENR1 &lt; 0) {</span>
+<span class="fc" id="L112">            throw new IllegalArgumentException(&quot;Enrollment must be nonnegative.&quot;);</span>
+        }
+<span class="fc" id="L114">    }</span>
+
+    private void checkCrossListCap(int CrossListCapToCheck) throws IllegalArgumentException {
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        if (CrossListCapToCheck &lt; 0) {</span>
+<span class="fc" id="L118">            throw new IllegalArgumentException(&quot;Cross list-cap must be nonnegative.&quot;);</span>
+        }
+<span class="fc" id="L120">    }</span>
+
+    private void checkCRN(int CRN1) throws IllegalArgumentException {
+<span class="fc bfc" id="L123" title="All 2 branches covered.">        if (CRN1 &lt; 0) {</span>
+<span class="fc" id="L124">            throw new IllegalArgumentException(&quot;Section number must be nonnegative.&quot;);</span>
+        }
+<span class="fc" id="L126">    }</span>
+    //Unlinked sections and sections that end with 1 are lectures
+    public boolean isLecture() {
+<span class="fc bfc" id="L129" title="All 4 branches covered.">        return LINK.equals(&quot;None&quot;) || LINK.endsWith(&quot;1&quot;);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

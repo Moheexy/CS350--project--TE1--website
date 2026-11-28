@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Course.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">edu.odu.cs.cs350</a> &gt; <span class="el_source">Course.java</span></div><h1>Course.java</h1><pre class="source lang-java linenums">package edu.odu.cs.cs350;
+
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
+
+/**
+ * 
+ * A course, which is composed of a course name, offerings and enrollment.
+ */
+public final class Course {
+    /**
+     * The name of the course.
+     */
+    private final String courseName;
+    /**
+     * List of course offerings.
+     */
+    private final ArrayList&lt;Offering&gt; offerings;
+    /**
+     * The total enrollment for this course.
+     */
+    private final int totalEnrollment;
+    /**
+     * The total cap of enrollment for this course.
+     */
+    private final int totalCap;
+
+    /**
+     * Course constructor. 
+     * 
+     * @param offerings the offerings of this course
+     * @throws IllegalArgumentException if their is not at least one offering associated with the course
+     */
+    public Course(List&lt;Offering&gt; offerings) throws IllegalArgumentException
+<span class="fc" id="L40">    {</span>
+<span class="fc" id="L41">        this.offerings = checkOfferings(offerings);</span>
+<span class="fc" id="L42">        this.courseName = offerings.get(0).getCourseName();</span>
+<span class="fc" id="L43">        this.totalEnrollment = sumTotalEnrollment();</span>
+<span class="fc" id="L44">        this.totalCap = findTotalCap();</span>
+
+<span class="fc" id="L46">    }</span>
+
+    private ArrayList&lt;Offering&gt; checkOfferings(List&lt;Offering&gt; listOfOfferings) throws IllegalArgumentException
+    {
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        if(listOfOfferings.size()&lt;1)</span>
+        {
+<span class="fc" id="L52">            throw new IllegalArgumentException(&quot;A course must have at least one offering.&quot;);</span>
+        }
+
+<span class="fc" id="L55">        return new ArrayList&lt;&gt;(listOfOfferings);</span>
+    }
+
+    /**
+     * @return the course name
+     */
+    public String getCourseName() {
+<span class="fc" id="L62">        return courseName;</span>
+    }
+
+    /**
+     * 
+     * @return the course offerings
+     */
+    public ArrayList&lt;Offering&gt; getOfferings() {
+<span class="fc" id="L70">        return offerings;</span>
+    }
+    /**
+     * 
+     * Private method for summing up enrollment over offerings.
+     * @return the sum of enrollments over all offerings
+     */
+    private int sumTotalEnrollment()
+    {
+<span class="fc" id="L79">        int enrollmentSum = 0;</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        for(Offering courseOffering : this.offerings)</span>
+        {
+<span class="fc" id="L82">            enrollmentSum+= courseOffering.getOverallEnrollmentValue();</span>
+<span class="fc" id="L83">        }</span>
+
+<span class="fc" id="L85">        return enrollmentSum;</span>
+    }
+
+    /**
+     * 
+     * Private method for summing up cap over offerings.
+     * @return the total cap over all offerings
+     */
+    private int findTotalCap()
+    {
+<span class="fc" id="L95">        int totalCapEnrollment = 0;</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">        for(Offering courseOffering : this.offerings)</span>
+        {
+<span class="fc" id="L98">            totalCapEnrollment+= courseOffering.getOverallEnrollmentValueCap();</span>
+<span class="fc" id="L99">        }</span>
+
+<span class="fc" id="L101">        return totalCapEnrollment;</span>
+    }
+
+    /**
+     * 
+     * @return the total enrollment in this course, derived from enrollment in offerings
+     */
+    public int findTotalEnrollment() {
+<span class="fc" id="L109">        return totalEnrollment;</span>
+    }
+
+    /**
+     * 
+     * @return the total cap for this course, derived from caps in offerings
+     */
+    public int getTotalCap() {
+<span class="fc" id="L117">        return totalCap;</span>
+    }
+
+    /**
+     * Conducts enrollment projection over a list of semesters.
+     * 
+     * @param semesters the list of semesters to compute a projection over
+     * @return a summary report containing the projection information
+     */
+    public static SummaryReport projectEnrollments(List&lt;Semester&gt; semesters) {
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        if (semesters.size() &lt; 2) {</span>
+<span class="fc" id="L128">            throw new IllegalArgumentException(</span>
+                &quot;At least one historical semester and one current semester are required.&quot;);
+        }
+        //By CLI contract, the last directory is the current semester.
+<span class="fc" id="L132">        Semester currentSemester = semesters.get(semesters.size() - 1);</span>
+        //d′ — the most recent snapshot we have for the current semester.
+<span class="fc" id="L134">        EnrollmentSnapshot currentSnapshot = latestSnapshot(currentSemester);</span>
+
+        //Where d′ sits on the 0…1 scale (0 = preregistration, 1 = add deadline)
+<span class="fc" id="L137">        double currentProgress = progressAt(currentSemester, currentSnapshot.getSnapShotDateValue());</span>
+       
+<span class="fc" id="L139">        ArrayList&lt;Course&gt; currentCourses = copyAndDropZeroLecture(currentSnapshot);</span>
+
+<span class="fc" id="L141">        ArrayList&lt;SummaryReport.CourseProjection&gt; projections = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        for (Course currentCourse : currentCourses) {</span>
+<span class="fc" id="L143">            long projectionTotal = 0;</span>
+<span class="fc" id="L144">            int usableSemesters = 0;</span>
+
+<span class="fc bfc" id="L146" title="All 2 branches covered.">            for (int i = 0; i &lt; semesters.size() - 1; i++) {</span>
+<span class="fc" id="L147">                Semester historicalSemester = semesters.get(i);</span>
+<span class="fc" id="L148">                int j = 1;</span>
+                //The whole per-semester computation sits inside the try so that
+                //ANY unusable semester (bad ratio, zero-day period, bad dates)
+                //is skipped the same way instead of killing the whole report.
+                try {
+                    //Compute h(d′) (history at the same relative point) and h(1) (history at its add deadline). 
+                    // OptionalDouble because the course may not exist in that semester, 
+                    // or the needed dates may fall outside the historical snapshots.
+<span class="fc" id="L156">                    OptionalDouble historicalAtCurrentProgress = enrollmentAt(</span>
+<span class="fc" id="L157">                        historicalSemester, currentCourse.getCourseName(), currentProgress);</span>
+<span class="fc" id="L158">                    OptionalDouble historicalAtDeadline = enrollmentAt(</span>
+<span class="fc" id="L159">                        historicalSemester, currentCourse.getCourseName(), 1.0);</span>
+                    //this historical semester can't help; skip it
+<span class="fc bfc" id="L161" title="All 4 branches covered.">                    if (historicalAtCurrentProgress.isEmpty() || historicalAtDeadline.isEmpty()) {</span>
+<span class="fc" id="L162">                        continue;</span>
+                    }
+
+<span class="fc" id="L165">                    projectionTotal += EnrollmentProjection.projectEnrollment(</span>
+<span class="fc" id="L166">                        currentCourse.findTotalEnrollment(),</span>
+<span class="fc" id="L167">                        historicalAtCurrentProgress.getAsDouble(),</span>
+<span class="fc" id="L168">                        historicalAtDeadline.getAsDouble());</span>
+<span class="fc" id="L169">                    usableSemesters++;</span>
+<span class="fc" id="L170">                } catch (IllegalArgumentException exception) {</span>
+<span class="fc" id="L171">                    System.err.printf(</span>
+                        &quot;Skipping projection for %s in %s: %s%n&quot;,
+<span class="fc" id="L173">                        currentCourse.getCourseName(),</span>
+<span class="fc" id="L174">                        historicalSemester.getSemesterTitle(),</span>
+<span class="fc" id="L175">                        exception.getMessage());</span>
+                    // TODO?    
+                    // System.out.println(j + &quot; projections skipped&quot;);
+                    // j++;
+<span class="fc" id="L179">                }</span>
+            }
+
+            //Refactored for cleain coding (:
+<span class="fc" id="L183">            getProjectedEnrollment(projections, currentCourse, projectionTotal, usableSemesters);</span>
+<span class="fc" id="L184">        }</span>
+
+<span class="fc" id="L186">        return new SummaryReport(currentSemester, projections);</span>
+    }
+
+    private static void getProjectedEnrollment(ArrayList&lt;SummaryReport.CourseProjection&gt; projections,
+            Course currentCourse, long projectionTotal, int usableSemesters) {
+<span class="fc bfc" id="L191" title="All 2 branches covered.">        OptionalInt projectedEnrollment = usableSemesters == 0</span>
+<span class="fc" id="L192">            ? OptionalInt.empty()</span>
+<span class="fc" id="L193">            : OptionalInt.of((int) Math.round((double) projectionTotal / usableSemesters));</span>
+<span class="fc" id="L194">        projections.add(new SummaryReport.CourseProjection(</span>
+<span class="fc" id="L195">            currentCourse.getCourseName(),</span>
+<span class="fc" id="L196">            currentCourse.findTotalEnrollment(),</span>
+            projectedEnrollment,
+<span class="fc" id="L198">            currentCourse.getTotalCap()));</span>
+<span class="fc" id="L199">    }</span>
+    
+
+    /**
+     * Helper method to copy and drop no capacity lecture sections (should be unneeded).
+     * @param currentSnapshot to rereive courses from
+     * @return a list of courses
+     */
+    private static ArrayList&lt;Course&gt; copyAndDropZeroLecture(EnrollmentSnapshot currentSnapshot) {
+        //Copy list (so snapshot isn't mutated), drop courses with zero lecture capacity
+<span class="fc" id="L209">        ArrayList&lt;Course&gt; currentCourses = new ArrayList&lt;&gt;(currentSnapshot.getCourseList());</span>
+<span class="fc bfc" id="L210" title="All 2 branches covered.">        currentCourses.removeIf(course -&gt; course.getTotalCap() == 0);</span>
+<span class="fc" id="L211">        currentCourses.sort(Comparator.comparing(Course::getCourseName));</span>
+<span class="fc" id="L212">        return currentCourses;</span>
+    }
+
+    protected static double progressAt(Semester semester, LocalDate date) {
+<span class="fc" id="L216">        long periodDays = ChronoUnit.DAYS.between(</span>
+<span class="fc" id="L217">            semester.findPreregistrationDate(), semester.getAddDeadline());</span>
+<span class="fc bfc" id="L218" title="All 2 branches covered.">        if (periodDays &lt;= 0) {</span>
+<span class="fc" id="L219">            throw new IllegalArgumentException(</span>
+                &quot;The enrollment period must have a positive number of days.&quot;);
+        }
+<span class="fc" id="L222">        return (double) ChronoUnit.DAYS.between(semester.findPreregistrationDate(), date)</span>
+            / periodDays;
+    }
+
+    //Interpolation
+    //Build (progress, enrollment) pairs from every snapshot where the course exists.
+    private static OptionalDouble enrollmentAt(
+        Semester semester,
+        String courseName,
+        double targetProgress) {
+
+<span class="fc" id="L233">        ArrayList&lt;EnrollmentPoint&gt; points = getPoints(semester, courseName);</span>
+        
+        //Case exact match, no interpolation
+<span class="fc" id="L236">        EnrollmentPoint lower = null;</span>
+<span class="fc" id="L237">        EnrollmentPoint upper = null;</span>
+<span class="fc bfc" id="L238" title="All 2 branches covered.">        for (EnrollmentPoint point : points) {</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">            if (Double.compare(point.progress(), targetProgress) == 0) {</span>
+<span class="fc" id="L240">                return OptionalDouble.of(point.enrollment());</span>
+            }
+            //Points are sorted by progress, so the last point below the
+            //target is the closest one below, and the first point above
+            //it is the closest one above; no extra comparisons needed.
+<span class="fc bfc" id="L245" title="All 2 branches covered.">            if (point.progress() &lt; targetProgress) {</span>
+<span class="fc" id="L246">                lower = point;</span>
+<span class="fc bfc" id="L247" title="All 2 branches covered.">            } else if (upper == null) {</span>
+<span class="fc" id="L248">                upper = point;</span>
+            }
+<span class="fc" id="L250">        }</span>
+        
+<span class="fc" id="L252">        return finalizeInterpolation(targetProgress, lower, upper);</span>
+    }
+
+    private static OptionalDouble finalizeInterpolation(double targetProgress, EnrollmentPoint lower, EnrollmentPoint upper) {
+        //Target outside the historical data (before the first or after the last snapshot) cannot interpolate
+<span class="fc bfc" id="L257" title="All 4 branches covered.">        if (lower == null || upper == null) {</span>
+<span class="fc" id="L258">            return OptionalDouble.empty();</span>
+        }
+        // h(d) = h(dₐ) + (d−dₐ)/(d_b−dₐ) · (h(d_b) − h(dₐ))
+<span class="fc" id="L261">        double fraction = (targetProgress - lower.progress())</span>
+<span class="fc" id="L262">            / (upper.progress() - lower.progress());</span>
+<span class="fc" id="L263">        return OptionalDouble.of(</span>
+<span class="fc" id="L264">            lower.enrollment() + fraction * (upper.enrollment() - lower.enrollment()));</span>
+    }
+
+    protected static ArrayList&lt;EnrollmentPoint&gt; getPoints(Semester semester, String courseName) {
+<span class="fc" id="L268">        ArrayList&lt;EnrollmentPoint&gt; points = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L269" title="All 2 branches covered.">        for (EnrollmentSnapshot snapshot : semester.getEnrollmentSnapshots()) {</span>
+<span class="fc" id="L270">            Course course = findCourse(snapshot, courseName);</span>
+<span class="fc bfc" id="L271" title="All 2 branches covered.">            if (course != null) {</span>
+<span class="fc" id="L272">                points.add(new EnrollmentPoint(</span>
+<span class="fc" id="L273">                    progressAt(semester, snapshot.getSnapShotDateValue()),</span>
+<span class="fc" id="L274">                    course.findTotalEnrollment()));</span>
+            }
+<span class="fc" id="L276">        }</span>
+        //Chronological order on the 0...1 scale.
+<span class="fc" id="L278">        points.sort(Comparator.comparingDouble(EnrollmentPoint::progress));</span>
+<span class="fc" id="L279">        return points;</span>
+    }
+    //A semester with no snapshots 
+    //The Semester constructor guarantees snapshots are non-empty and sorted
+    //chronologically, so the last element is the latest snapshot.
+    private static EnrollmentSnapshot latestSnapshot(Semester semester) {
+<span class="fc" id="L285">        List&lt;EnrollmentSnapshot&gt; snapshots = semester.getEnrollmentSnapshots();</span>
+<span class="fc" id="L286">        return snapshots.get(snapshots.size() - 1);</span>
+    }
+
+    private static Course findCourse(EnrollmentSnapshot snapshot, String courseName) {
+<span class="fc" id="L290">        return snapshot.getCourseList().stream()</span>
+<span class="fc" id="L291">            .filter(course -&gt; course.getCourseName().equals(courseName))</span>
+<span class="fc" id="L292">            .findFirst()</span>
+<span class="fc" id="L293">            .orElse(null);</span>
+    }
+
+<span class="fc" id="L296">    protected record EnrollmentPoint(double progress, int enrollment) {</span>
+    }
+
+    /**
+     * Calculates the enrollment expected on the add-deadline date of the current
+     * semester, based on how a course's enrollment grew between the equivalent
+     * snapshot date and its add deadline in a past semester.
+     */
+    public static final class EnrollmentProjection {
+
+        /** Static utility class. */
+        private EnrollmentProjection() {}
+
+        /**
+         * Estimate the enrollment of a course offering on the current semester's
+         * add deadline, assuming enrollment grows proportionally to history:
+         * c(1) / c(d') = h(1) / h(d'), solved for c(1).
+         *
+         * @param currentSnapshotEnrollment students enrolled in the offering as of
+         *        the latest snapshot date of the current semester; nonnegative
+         * @param historicalSnapshotEnrollment students enrolled in the course at
+         *        the equivalent snapshot date in a past semester; nonnegative
+         * @param historicalDeadlineEnrollment students enrolled in the course on
+         *        the add deadline in a past semester; nonnegative
+         * @return the projected enrollment, rounded to the nearest whole student
+         * @throws IllegalArgumentException if any argument is negative, or if the
+         *         historical enrollment grew from zero to a positive value
+         */
+        public static int projectEnrollment(int currentSnapshotEnrollment, int historicalSnapshotEnrollment, int historicalDeadlineEnrollment) {
+            //Int overload (key unit tests) 
+<span class="fc" id="L326">            return projectEnrollment(</span>
+                currentSnapshotEnrollment,
+                (double) historicalSnapshotEnrollment,
+                (double) historicalDeadlineEnrollment);
+        }
+
+        /**
+         * Performs the core projection computation over exact numeric values.
+         * 
+         * @param currentSnapshotEnrollment
+         * @param historicalSnapshotEnrollment
+         * @param historicalDeadlineEnrollment
+         * @return the projected enrollment, rounded to the nearest student
+         */
+        public static int projectEnrollment(
+            int currentSnapshotEnrollment,
+            double historicalSnapshotEnrollment,
+            double historicalDeadlineEnrollment) {
+<span class="fc" id="L344">            requirePositiveEnrollmentValue(currentSnapshotEnrollment,</span>
+                &quot;Current enrollment must be nonnegative.&quot;);
+<span class="fc" id="L346">            requirePositiveEnrollmentValue(historicalSnapshotEnrollment,</span>
+                &quot;Historical snapshot enrollment must be nonnegative.&quot;);
+<span class="fc" id="L348">            requirePositiveEnrollmentValue(historicalDeadlineEnrollment,</span>
+                &quot;Historical deadline enrollment must be nonnegative.&quot;);
+
+<span class="fc bfc" id="L351" title="All 2 branches covered.">            if (historicalSnapshotEnrollment == 0) {</span>
+<span class="fc" id="L352">                return projectWithoutHistoricalGrowth(</span>
+                    currentSnapshotEnrollment, historicalDeadlineEnrollment);
+            }
+
+<span class="fc" id="L356">            return roundToNearestStudent(</span>
+                currentSnapshotEnrollment
+                    * (double) historicalDeadlineEnrollment
+                    / historicalSnapshotEnrollment);
+        }
+
+        /**
+         * Case where no one was enrolled at the historical
+         * snapshot date: assume no change, unless history grew from zero.
+         * 
+         * @param currentSnapshotEnrollment
+         * @param historicalDeadlineEnrollment
+         * @return the projected enrollment without factoring in historical enrollment (currentSnapshotEnrollment)
+         */
+        private static int projectWithoutHistoricalGrowth(int currentSnapshotEnrollment, double historicalDeadlineEnrollment) {
+<span class="fc bfc" id="L371" title="All 2 branches covered.">            if (historicalDeadlineEnrollment &gt; 0) {</span>
+<span class="fc" id="L372">                throw new IllegalArgumentException(</span>
+                    &quot;Enrollment growth did not occur until after the relative cutoff date; no projection can be made.&quot;);
+            }
+<span class="fc" id="L375">            return currentSnapshotEnrollment;</span>
+        }
+
+        /** Reject negative enrollment values with a caller-specific message.
+         * Rejects NaN/±∞ — possible if interpolation ever produced trash.
+         * 
+         * @param value the value to check
+         * @param message the message to display if value invalid
+         */
+        private static void requirePositiveEnrollmentValue(double value, String message) {
+<span class="fc bfc" id="L385" title="All 4 branches covered.">            if (!Double.isFinite(value) || value &lt; 0) {</span>
+<span class="fc" id="L386">                throw new IllegalArgumentException(message);</span>
+            }
+<span class="fc" id="L388">        }</span>
+
+        /** Round a raw projected enrollment to the nearest whole student.
+         * 
+         * @param rawProjection the projection value
+         * @return the projection, rounded to the nearest student (whole number)
+         */
+        private static int roundToNearestStudent(double rawProjection) {
+<span class="fc" id="L396">            return (int) Math.round(rawProjection);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

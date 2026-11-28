@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Offering.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">project</a> &gt; <a href="index.source.html" class="el_package">edu.odu.cs.cs350</a> &gt; <span class="el_source">Offering.java</span></div><h1>Offering.java</h1><pre class="source lang-java linenums">package edu.odu.cs.cs350;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * 
+ * Offering; an offering of a course. May consist of 1 or more sections
+ */
+public final class Offering {
+
+    /** The name the course we offer. 
+     * Only one name is employed, even for combined sections (e.g CS 450/550).
+     */
+    private final String CourseName;
+    /**The overall enrollment for this offering. */
+    private final int overallEnrollment;
+    /** The overall cap of enrollment for this offering. */
+    private final int overallEnrollmentCap;
+    /**The sections in this offering. */
+    private final ArrayList&lt;Section&gt; sections;
+
+    /**
+     * Constructor for offering.
+     * 
+     * @param potentialSections of this offering
+     * @throws IllegalArgumentException if invariants of sections are violated
+     */
+    public Offering(List&lt;Section&gt; potentialSections) throws IllegalArgumentException
+<span class="fc" id="L33">    {</span>
+        //If sections are invalid, we cannot proceed and want to throw.
+<span class="fc" id="L35">        checkSectionsValid(potentialSections);</span>
+        
+<span class="fc" id="L37">        this.sections = new ArrayList&lt;&gt;(potentialSections);</span>
+<span class="fc" id="L38">        this.CourseName = sections.get(0).subject() + sections.get(0).CourseNumber();</span>
+       /**
+        * (overallEnrollmentCap/overallEnrollment) straight from the CSV; every seat belongs to lectures
+        * (lecture + lab/rec) the totals include lab/rec seats, so instead sum each lecture section's own cap (XLSTCAP) and enrollment (ENR). 
+        * A lecture-only-in-a-mixed-offering therefore reports only its lecture numbers; an all-lab/rec offering reports 0/0,
+        * 
+        * Note: Because labs and lectures are supposed to get filtered by ProjectionReader, lectureOnly should always be true for real data.
+        * However, this is still useful to ensure Offerings/Sections created for testing purposes are legitimate.
+       **/
+<span class="fc" id="L47">       boolean lectureOnly = sections.stream().allMatch(Section::isLecture);</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        this.overallEnrollmentCap = lectureOnly</span>
+<span class="fc" id="L49">            ? sections.get(0).overallEnrollmentCap()</span>
+<span class="fc" id="L50">            : sections.stream().filter(Section::isLecture).mapToInt(Section::CrossListCap).sum();</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">        this.overallEnrollment = lectureOnly</span>
+<span class="fc" id="L52">            ? sections.get(0).overallEnrollment()</span>
+<span class="fc" id="L53">            : sections.stream().filter(Section::isLecture).mapToInt(Section::ENR).sum();</span>
+        
+<span class="fc" id="L55">    }</span>
+
+
+    /**
+     * Checks the sections of our potential offering for validity.
+     *
+     *  
+     * @param sectionsList the sections to check and assert invariants upon
+     * @throws IllegalArgumentException if invariants are not held
+     */
+    private void checkSectionsValid(List&lt;Section&gt; sectionsList) throws IllegalArgumentException {
+
+<span class="fc" id="L67">            enforceMoreThanTwoSections(sectionsList);</span>
+    
+<span class="fc" id="L69">            String subject = sectionsList.get(0).subject();</span>
+<span class="fc" id="L70">            String crossListGroup = sectionsList.get(0).crossListGroup();</span>
+<span class="fc" id="L71">            int overallEnrollmentCapToCheck = sectionsList.get(0).overallEnrollmentCap();</span>
+<span class="fc" id="L72">            int overallEnrollmentToCheck = sectionsList.get(0).overallEnrollment();</span>
+
+<span class="fc" id="L74">            Set&lt;Integer&gt; knownCourseRegistrationNumbers = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L75">            int realTotalEnrollment = 0;</span>
+
+            
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        for (int sectionIndex = 0; sectionIndex &lt; sectionsList.size(); sectionIndex++) {</span>
+                
+<span class="fc" id="L80">            Section sectionToCheck = sectionsList.get(sectionIndex);</span>
+
+<span class="fc" id="L82">            enforceNoSoleSectionInMultiSectionOffering(sectionsList, sectionToCheck);</span>
+
+<span class="fc" id="L84">            checkDuplicateCourseRegistrationNumbers(knownCourseRegistrationNumbers, sectionToCheck);</span>
+
+
+
+<span class="fc" id="L88">            enforceSubjectsMatch(subject, sectionToCheck);</span>
+
+                
+<span class="fc" id="L91">            enforceCrossListGroupsMatch(crossListGroup, sectionToCheck);</span>
+
+
+<span class="fc" id="L94">            enforceOverallEnrollmentCapMatches(overallEnrollmentCapToCheck, sectionToCheck);</span>
+
+<span class="fc" id="L96">            enforceOverallEnrollmentMatches(overallEnrollmentToCheck, sectionToCheck);</span>
+            
+<span class="fc" id="L98">            realTotalEnrollment+= sectionToCheck.ENR();            </span>
+        }
+
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        if(realTotalEnrollment != overallEnrollmentToCheck)</span>
+        {
+<span class="fc" id="L103">            throw new IllegalArgumentException(&quot;The sum of individual enrollments must match the overall enrollment all entries in a section.&quot;);</span>
+        }
+
+        //This invariant does not hold in real data
+        // if(realTotalEnrollment &gt; overallEnrollmentCap)
+        // {
+        //     throw new IllegalArgumentException(enrollmentExceedsTotal);
+
+        // }
+<span class="fc" id="L112">    }</span>
+
+
+    private void enforceOverallEnrollmentMatches(int overallEnrollmentToCheck, Section sectionToCheck) {
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        if(overallEnrollmentToCheck != sectionToCheck.overallEnrollment())</span>
+        {
+<span class="fc" id="L118">            throw new IllegalArgumentException(&quot;Overall enrollment must match for all entries in a section.&quot;);</span>
+
+        }
+<span class="fc" id="L121">    }</span>
+
+
+    private void enforceOverallEnrollmentCapMatches(int overallEnrollmentCapToCheck, Section sectionToCheck) {
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        if(overallEnrollmentCapToCheck != sectionToCheck.overallEnrollmentCap())</span>
+        {
+<span class="fc" id="L127">            throw new IllegalArgumentException(&quot;The overall enrollment cap must match for all entries in a section.&quot;);</span>
+
+        }
+<span class="fc" id="L130">    }</span>
+
+
+    private void enforceCrossListGroupsMatch(String crossListGroup, Section sectionToCheck) {
+<span class="fc bfc" id="L134" title="All 2 branches covered.">        if(!crossListGroup.equals(sectionToCheck.crossListGroup()))</span>
+        {
+<span class="fc" id="L136">            throw new IllegalArgumentException(&quot;Cross-list group must match for all entries in a section.&quot;);</span>
+
+        }
+<span class="fc" id="L139">    }</span>
+
+
+    private void enforceSubjectsMatch(String subject, Section sectionToCheck) {
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        if(!subject.equals(sectionToCheck.subject()))</span>
+        {
+<span class="fc" id="L145">            throw new IllegalArgumentException(&quot;Subject must match for all entries in a section.&quot;);</span>
+        }
+<span class="fc" id="L147">    }</span>
+
+
+    private void checkDuplicateCourseRegistrationNumbers(Set&lt;Integer&gt; knownCourseRegistrationNumbers, Section sectionToCheck) {
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        if(knownCourseRegistrationNumbers.contains(sectionToCheck.CRN()))</span>
+        {
+<span class="fc" id="L153">          throw new IllegalArgumentException(&quot;CRN must be unique for all sections.&quot;);  </span>
+        }
+        
+<span class="fc" id="L156">        knownCourseRegistrationNumbers.add(sectionToCheck.CRN());</span>
+<span class="fc" id="L157">    }</span>
+
+
+    private void enforceNoSoleSectionInMultiSectionOffering(List&lt;Section&gt; sectionsToCheck, Section sectionToCheck) {
+<span class="fc bfc" id="L161" title="All 4 branches covered.">        if(sectionToCheck.crossListGroup().equals(&quot;None&quot;) &amp;&amp; sectionsToCheck.size() &gt; 1)</span>
+        {
+<span class="fc" id="L163">            throw new IllegalArgumentException(&quot;If a section has no cross list group, it must be the only section in its offering.&quot;);</span>
+        }
+<span class="fc" id="L165">    }</span>
+
+
+    private void enforceMoreThanTwoSections(List&lt;Section&gt; sectionsToCheck) {
+<span class="fc bfc" id="L169" title="All 2 branches covered.">        if(sectionsToCheck.size()&lt;1)</span>
+        {
+<span class="fc" id="L171">            throw new IllegalArgumentException(&quot;An offering must have at least one section.&quot;);</span>
+        }
+<span class="fc" id="L173">    }</span>
+
+
+    /**
+     * 
+     * @return the sections of this offering
+     */
+    public ArrayList&lt;Section&gt; getSections() {
+<span class="fc" id="L181">        return sections;</span>
+    }
+
+    /**
+     * 
+     * @return the course of this offering. Even for mixed graduate/undergrad classes only one coursename is permitted
+     */
+    public String getCourseName() {
+<span class="fc" id="L189">        return CourseName;</span>
+    }
+
+    /**
+     * 
+     * @return overall enrollment in this offering
+     */
+    public int getOverallEnrollmentValue() {
+<span class="fc" id="L197">        return overallEnrollment;</span>
+    }
+
+    /**
+     * 
+     * @return overall cap of this offering
+     */
+    public int getOverallEnrollmentValueCap() {
+<span class="fc" id="L205">        return overallEnrollmentCap;</span>
+    }
+
+    /**
+     * 
+     * Inspiration: https://samderlust.com/dev-blog/java/overriding-equals-method-java.
+     * @see java.lang.Object#equals(java.lang.Object)
+     */
+    @Override 
+    public boolean equals(Object o)
+    {
+<span class="fc bfc" id="L216" title="All 2 branches covered.">        if (exactMatch(o)) return true;</span>
+
+<span class="fc bfc" id="L218" title="All 2 branches covered.">        if (nullOrMismatchedClass(o)) return false;</span>
+
+<span class="fc" id="L220">        Offering other = (Offering) o;</span>
+<span class="fc bfc" id="L221" title="All 2 branches covered.">        boolean match = other.getCourseName().equals(this.getCourseName()) &amp;&amp; //An offering can be made up of multiple sections of different course names</span>
+<span class="fc bfc" id="L222" title="All 2 branches covered.">                        other.getOverallEnrollmentValueCap() == this.getOverallEnrollmentValueCap() &amp;&amp;</span>
+<span class="fc bfc" id="L223" title="All 2 branches covered.">                        other.getOverallEnrollmentValue() == this.getOverallEnrollmentValue();</span>
+
+<span class="fc bfc" id="L225" title="All 2 branches covered.">        for(Section section : other.getSections())</span>
+        {
+<span class="fc bfc" id="L227" title="All 2 branches covered.">            if(!this.getSections().contains(section))</span>
+            {
+<span class="fc" id="L229">                match = false;</span>
+
+            }
+<span class="fc" id="L232">        }</span>
+<span class="fc" id="L233">        return match;</span>
+    }
+
+    private boolean nullOrMismatchedClass(Object o) {
+<span class="fc bfc" id="L237" title="All 4 branches covered.">        if (o == null || this.getClass() != o.getClass()) {</span>
+<span class="fc" id="L238">            return true;</span>
+        }
+<span class="fc" id="L240">        return false;</span>
+    }
+
+    private boolean exactMatch(Object o) {
+<span class="fc bfc" id="L244" title="All 2 branches covered.">        if (this == o) {</span>
+<span class="fc" id="L245">            return true;</span>
+        }
+<span class="fc" id="L247">        return false;</span>
+    }
+
+    /**
+     * 
+     * @see java.lang.Object#hashCode()
+     */
+    @Override 
+    public int hashCode()
+    {
+<span class="fc" id="L257">        return Objects.hash(this.getCourseName(),this.getOverallEnrollmentValueCap(), this.getOverallEnrollmentValue(), this.getSections());</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
