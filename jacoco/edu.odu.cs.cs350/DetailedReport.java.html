@@ -10,7 +10,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.xddf.usermodel.chart.LegendPosition;
+import org.apache.poi.xddf.usermodel.chart.MarkerStyle;
+import org.apache.poi.xddf.usermodel.chart.XDDFDataSourcesFactory;
+import org.apache.poi.xddf.usermodel.chart.XDDFNumericalDataSource;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -23,6 +29,8 @@ import org.apache.poi.xssf.usermodel.XSSFClientAnchor;
 import org.apache.poi.xssf.usermodel.XSSFDrawing;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.openxmlformats.schemas.drawingml.x2006.chart.CTScatterChart;
+import org.openxmlformats.schemas.drawingml.x2006.chart.STScatterStyle;
 
 import edu.odu.cs.cs350.Course.EnrollmentPoint;
 
@@ -44,11 +52,11 @@ public class DetailedReport {
      * @param argumentSemesters the semesters we project with
      * @param argumentLocation the location we write the report
      */
-<span class="fc" id="L47">    public DetailedReport(ArrayList&lt;Semester&gt; argumentSemesters, Path argumentLocation) {</span>
-<span class="fc" id="L48">        allSemesters = argumentSemesters;</span>
-<span class="fc" id="L49">        reportLocation = argumentLocation;</span>
-<span class="fc" id="L50">        lastSemester = allSemesters.get(allSemesters.size()-1);</span>
-<span class="fc" id="L51">    }</span>
+<span class="fc" id="L55">    public DetailedReport(ArrayList&lt;Semester&gt; argumentSemesters, Path argumentLocation) {</span>
+<span class="fc" id="L56">        allSemesters = argumentSemesters;</span>
+<span class="fc" id="L57">        reportLocation = argumentLocation;</span>
+<span class="fc" id="L58">        lastSemester = allSemesters.get(allSemesters.size()-1);</span>
+<span class="fc" id="L59">    }</span>
 
     /**
      * Creates our DPR filename.
@@ -56,8 +64,8 @@ public class DetailedReport {
      */
     public String createDPRFileName()
     {
-<span class="fc" id="L59">        String fNameWithSpaces = &quot;Detailed Projection Report-&quot; + lastSemester.getSemesterTitle();</span>
-<span class="fc" id="L60">        return fNameWithSpaces.replace(' ','-');</span>
+<span class="fc" id="L67">        String fNameWithSpaces = &quot;Detailed Projection Report-&quot; + lastSemester.getSemesterTitle();</span>
+<span class="fc" id="L68">        return fNameWithSpaces.replace(' ','-');</span>
     }
 
     /** 
@@ -70,74 +78,74 @@ public class DetailedReport {
     public void writeReport(List&lt;SummaryReport.CourseProjection&gt; projectionsList) throws IOException
     {
         //Collect these into map for easier earch
-<span class="fc" id="L73">        Map&lt;String, SummaryReport.CourseProjection&gt; projectionsMap = projectionsList.stream()</span>
-<span class="fc" id="L74">        .collect(Collectors.toMap(SummaryReport.CourseProjection::courseName, Function.identity() ));</span>
+<span class="fc" id="L81">        Map&lt;String, SummaryReport.CourseProjection&gt; projectionsMap = projectionsList.stream()</span>
+<span class="fc" id="L82">        .collect(Collectors.toMap(SummaryReport.CourseProjection::courseName, Function.identity() ));</span>
 
         //Create directory,decide filename
-<span class="fc" id="L77">        Files.createDirectories(reportLocation);</span>
-<span class="fc" id="L78">        Path outputSS = reportLocation.resolve(createDPRFileName()+&quot;.xlsx&quot;);</span>
+<span class="fc" id="L85">        Files.createDirectories(reportLocation);</span>
+<span class="fc" id="L86">        Path outputSS = reportLocation.resolve(createDPRFileName()+&quot;.xlsx&quot;);</span>
 
         //Create workbook
-<span class="fc" id="L81">		Workbook DetailedProjectionReportWorkbook = new XSSFWorkbook();</span>
+<span class="fc" id="L89">		Workbook DetailedProjectionReportWorkbook = new XSSFWorkbook();</span>
 
         //Get list of courses from last snapshot
         //Sort by coursename
-<span class="fc" id="L85">        var snapshots = lastSemester.getEnrollmentSnapshots();</span>
-<span class="fc" id="L86">        var courseList = snapshots.get(snapshots.size()-1).getCourseList();</span>
-<span class="fc" id="L87">        courseList.sort(Comparator.comparing(Course::getCourseName));</span>
+<span class="fc" id="L93">        var snapshots = lastSemester.getEnrollmentSnapshots();</span>
+<span class="fc" id="L94">        var courseList = snapshots.get(snapshots.size()-1).getCourseList();</span>
+<span class="fc" id="L95">        courseList.sort(Comparator.comparing(Course::getCourseName));</span>
 
 
-<span class="fc bfc" id="L90" title="All 2 branches covered.">        for(int i=0; i&lt; courseList.size(); i++)</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        for(int i=0; i&lt; courseList.size(); i++)</span>
         {
-<span class="fc" id="L92">            Course course = courseList.get(i);</span>
+<span class="fc" id="L100">            Course course = courseList.get(i);</span>
 
-<span class="fc" id="L94">            Sheet courseSheet = DetailedProjectionReportWorkbook.createSheet(course.getCourseName());</span>
+<span class="fc" id="L102">            Sheet courseSheet = DetailedProjectionReportWorkbook.createSheet(course.getCourseName());</span>
             
 
-<span class="fc" id="L97">            Row Header = courseSheet.createRow(0);</span>
-<span class="fc" id="L98">            int columnGuide = -1;</span>
-<span class="fc bfc" id="L99" title="All 2 branches covered.">            for( Semester semester : allSemesters)</span>
+<span class="fc" id="L105">            Row Header = courseSheet.createRow(0);</span>
+<span class="fc" id="L106">            int columnGuide = -1;</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">            for( Semester semester : allSemesters)</span>
             {
-<span class="fc" id="L101">                var enrollmentPoints = Course.getPoints(semester, course.getCourseName());</span>
+<span class="fc" id="L109">                var enrollmentPoints = Course.getPoints(semester, course.getCourseName());</span>
                 
-<span class="fc bfc" id="L103" title="All 2 branches covered.">                if(!semester.equals(lastSemester))</span>
-<span class="fc" id="L104">                {(Header.createCell(++columnGuide)).setCellValue(&quot;d Historical&quot;);}</span>
-<span class="fc" id="L105">                else {(Header.createCell(++columnGuide)).setCellValue(&quot;d Current&quot;);}</span>
-<span class="fc" id="L106">                (Header.createCell(++columnGuide)).setCellValue(semester.getSemesterTitle());</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">                if(!semester.equals(lastSemester))</span>
+<span class="fc" id="L112">                {(Header.createCell(++columnGuide)).setCellValue(&quot;d Historical&quot;);}</span>
+<span class="fc" id="L113">                else {(Header.createCell(++columnGuide)).setCellValue(&quot;d Current&quot;);}</span>
+<span class="fc" id="L114">                (Header.createCell(++columnGuide)).setCellValue(semester.getSemesterTitle());</span>
 
 
-<span class="fc" id="L109">                createRow(courseSheet, columnGuide, enrollmentPoints);</span>
+<span class="fc" id="L117">                createRow(courseSheet, columnGuide, enrollmentPoints);</span>
 
                 //Display projection this course
-<span class="fc bfc" id="L112" title="All 2 branches covered.">                if(semester.equals(lastSemester))</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">                if(semester.equals(lastSemester))</span>
                 {
 
                 // Note: the explicit return of columnGuide is not required;  this could be handled implicitly by just relying
                 // on the pointer being updated, however it is included for clarity's sake.
-<span class="fc" id="L117">                columnGuide = configureProjectionCells(projectionsMap, course, courseSheet, Header, columnGuide,</span>
+<span class="fc" id="L125">                columnGuide = configureProjectionCells(projectionsMap, course, courseSheet, Header, columnGuide,</span>
                         enrollmentPoints);
                 }
 
-<span class="fc" id="L121">            }</span>
+<span class="fc" id="L129">            }</span>
             //Size Column
-<span class="fc bfc" id="L123" title="All 2 branches covered.">            for(int columns = 0 ; columns &lt; columnGuide; columns++ )</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">            for(int columns = 0 ; columns &lt; columnGuide; columns++ )</span>
             {
-<span class="fc" id="L125">                courseSheet.autoSizeColumn(columns);</span>
+<span class="fc" id="L133">                courseSheet.autoSizeColumn(columns);</span>
             }
-<span class="fc" id="L127">            createEnrollmentChart((XSSFSheet) courseSheet, columnGuide + 3);</span>
+<span class="fc" id="L135">            createEnrollmentChart((XSSFSheet) courseSheet, columnGuide + 3);</span>
         }
 
         
         //Write
         
-<span class="fc" id="L133">        try (FileOutputStream fileOutputStream =</span>
-<span class="fc" id="L134">                new FileOutputStream(outputSS.toFile())) {</span>
+<span class="fc" id="L141">        try (FileOutputStream fileOutputStream =</span>
+<span class="fc" id="L142">                new FileOutputStream(outputSS.toFile())) {</span>
 
-<span class="fc" id="L136">            DetailedProjectionReportWorkbook.write(fileOutputStream);</span>
+<span class="fc" id="L144">            DetailedProjectionReportWorkbook.write(fileOutputStream);</span>
         }
 
-<span class="fc" id="L139">        DetailedProjectionReportWorkbook.close();</span>
-<span class="fc" id="L140">    }</span>
+<span class="fc" id="L147">        DetailedProjectionReportWorkbook.close();</span>
+<span class="fc" id="L148">    }</span>
 
     /**
      * Configures our projection related cells.
@@ -155,23 +163,49 @@ public class DetailedReport {
         //Projected columns
         //Last enrollment point of current &amp; 
         //Projection at d=1
-<span class="fc" id="L158">        (Header.createCell(++columnGuide)).setCellValue(&quot;d Projected&quot;);</span>
-<span class="fc" id="L159">        (Header.createCell(++columnGuide)).setCellValue(&quot;Projected&quot;);</span>
-
-<span class="fc" id="L161">        Row lastSnapshotRow = courseSheet.getRow(1);</span>
-<span class="fc" id="L162">        var lastCurrentSnapshot = enrollmentPoints.get(enrollmentPoints.size()-1);</span>
-<span class="fc" id="L163">        lastSnapshotRow.createCell(columnGuide-1).setCellValue(lastCurrentSnapshot.progress());</span>
-<span class="fc" id="L164">        lastSnapshotRow.createCell(columnGuide).setCellValue(lastCurrentSnapshot.enrollment());</span>
+<span class="fc" id="L166">        (Header.createCell(++columnGuide)).setCellValue(&quot;d Projected&quot;);</span>
+<span class="fc" id="L167">        (Header.createCell(++columnGuide)).setCellValue(&quot;Projected&quot;);</span>
 
         //Find THIS course
-<span class="fc" id="L167">        SummaryReport.CourseProjection thisCourseProjection = projectionsMap.get(course.getCourseName());</span>
-<span class="fc" id="L168">        Row projectionProperRow = courseSheet.getRow(2);</span>
+<span class="fc" id="L170">        SummaryReport.CourseProjection thisCourseProjection = projectionsMap.get(course.getCourseName());</span>
+
+<span class="fc" id="L172">        Row lastSnapshotRow = courseSheet.getRow(1);</span>
+<span class="fc" id="L173">        var startPoint = chooseProjectionStart(enrollmentPoints, thisCourseProjection);</span>
+<span class="fc" id="L174">        lastSnapshotRow.createCell(columnGuide-1).setCellValue(startPoint.progress());</span>
+<span class="fc" id="L175">        lastSnapshotRow.createCell(columnGuide).setCellValue(startPoint.enrollment());</span>
+
+<span class="fc" id="L177">        Row projectionProperRow = courseSheet.getRow(2);</span>
         //by definition, we projected until the addDeadline, d=1
-<span class="fc" id="L170">        projectionProperRow.createCell(columnGuide-1).setCellValue(1);</span>
+<span class="fc" id="L179">        projectionProperRow.createCell(columnGuide-1).setCellValue(1);</span>
         
         //Realistically, this does not occur unless our input data was unusuably bad
-<span class="fc" id="L173">        setProjectionCellProper(columnGuide, thisCourseProjection, projectionProperRow);</span>
-<span class="fc" id="L174">        return columnGuide;</span>
+<span class="fc" id="L182">        setProjectionCellProper(columnGuide, thisCourseProjection, projectionProperRow);</span>
+<span class="fc" id="L183">        return columnGuide;</span>
+    }
+
+    /**
+     * Picks where the projected line starts: the last current snapshot, unless that snapshot
+     * is already at the add deadline (progress &gt;= 1.0) and equals the projection. In that case
+     * the line would have zero length, so use the last snapshot before the deadline.
+     * 
+     * @param points the current semester's progress-enrollment points, sorted by progress
+     * @param projection the projection for this course (may be null)
+     * @return the point the projected line starts from
+     */
+    private EnrollmentPoint chooseProjectionStart(ArrayList&lt;EnrollmentPoint&gt; points,
+            SummaryReport.CourseProjection projection) {
+<span class="fc" id="L197">        EnrollmentPoint last = points.get(points.size() - 1);</span>
+<span class="pc bpc" id="L198" title="1 of 4 branches missed.">        if (projection == null || projection.projectedEnrollment().isEmpty()</span>
+<span class="fc bfc" id="L199" title="All 2 branches covered.">                || last.progress() &lt; 1.0</span>
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">                || last.enrollment() != projection.projectedEnrollment().getAsInt()) {</span>
+<span class="fc" id="L201">            return last;</span>
+        }
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">        for (int i = points.size() - 2; i &gt;= 0; i--) {</span>
+<span class="pc bpc" id="L204" title="1 of 2 branches missed.">            if (points.get(i).progress() &lt; 1.0) {</span>
+<span class="fc" id="L205">                return points.get(i);</span>
+            }
+        }
+<span class="nc" id="L208">        return last;</span>
     }
 
     /**
@@ -182,18 +216,18 @@ public class DetailedReport {
      */
     private void setProjectionCellProper(int columnGuide, SummaryReport.CourseProjection thisCourseProjection,
             Row projectionProperRow) {
-<span class="fc" id="L185">        var projection_cell = projectionProperRow.createCell(columnGuide);</span>
-<span class="pc bpc" id="L186" title="1 of 2 branches missed.">        if(thisCourseProjection == null ||</span>
-<span class="fc bfc" id="L187" title="All 2 branches covered.">            thisCourseProjection.projectedEnrollment().isEmpty() )</span>
+<span class="fc" id="L219">        var projection_cell = projectionProperRow.createCell(columnGuide);</span>
+<span class="pc bpc" id="L220" title="1 of 2 branches missed.">        if(thisCourseProjection == null ||</span>
+<span class="fc bfc" id="L221" title="All 2 branches covered.">            thisCourseProjection.projectedEnrollment().isEmpty() )</span>
         {
-<span class="fc" id="L189">            projection_cell.setCellValue(&quot;N/A&quot;);</span>
+<span class="fc" id="L223">            projection_cell.setCellValue(&quot;N/A&quot;);</span>
         }
         else
         {
-<span class="fc" id="L193">            int knownProjection = thisCourseProjection.projectedEnrollment().getAsInt();</span>
-<span class="fc" id="L194">            projection_cell.setCellValue(knownProjection);</span>
+<span class="fc" id="L227">            int knownProjection = thisCourseProjection.projectedEnrollment().getAsInt();</span>
+<span class="fc" id="L228">            projection_cell.setCellValue(knownProjection);</span>
         }
-<span class="fc" id="L196">    }</span>
+<span class="fc" id="L230">    }</span>
 
     /**
      * Create the component of the row containing snapshot values.
@@ -203,42 +237,87 @@ public class DetailedReport {
      * @param columnGuide last index of columns we are interested in writing to
      */
     private void createRow(Sheet courseSheet, int columnGuide, ArrayList&lt;EnrollmentPoint&gt; enrollmentPoints) {
-<span class="fc bfc" id="L206" title="All 2 branches covered.">        for(int j =0; j&lt;enrollmentPoints.size(); j++)</span>
+<span class="fc bfc" id="L240" title="All 2 branches covered.">        for(int j =0; j&lt;enrollmentPoints.size(); j++)</span>
         {
 
-<span class="fc bfc" id="L209" title="All 2 branches covered.">            if(courseSheet.getRow(j+1)==null)</span>
+<span class="fc bfc" id="L243" title="All 2 branches covered.">            if(courseSheet.getRow(j+1)==null)</span>
             {
-<span class="fc" id="L211">                courseSheet.createRow(j+1);</span>
+<span class="fc" id="L245">                courseSheet.createRow(j+1);</span>
             }
 
-<span class="fc" id="L214">            Row datePointRow = courseSheet.getRow(j+1);</span>
-<span class="fc" id="L215">            datePointRow.createCell(columnGuide-1).setCellValue(enrollmentPoints.get(j).progress());</span>
-<span class="fc" id="L216">            datePointRow.createCell(columnGuide).setCellValue(enrollmentPoints.get(j).enrollment());</span>
+<span class="fc" id="L248">            Row datePointRow = courseSheet.getRow(j+1);</span>
+<span class="fc" id="L249">            datePointRow.createCell(columnGuide-1).setCellValue(enrollmentPoints.get(j).progress());</span>
+<span class="fc" id="L250">            datePointRow.createCell(columnGuide).setCellValue(enrollmentPoints.get(j).enrollment());</span>
             
         }
-<span class="fc" id="L219">    }</span>
+<span class="fc" id="L253">    }</span>
     /**
      * Creates a graph.
      * @param sheet the course sheet where the chart is made
      */
-    public void createEnrollmentChart(XSSFSheet sheet, int lastColumn) {
-<span class="fc" id="L225">    XSSFDrawing drawing = sheet.createDrawingPatriarch();</span>
+   public void createEnrollmentChart(XSSFSheet sheet, int lastColumn) {
+<span class="fc" id="L259">        XSSFDrawing drawing = sheet.createDrawingPatriarch();</span>
 
-    // Put the chart to the right of columns
-<span class="fc" id="L228">    XSSFClientAnchor anchor = new XSSFClientAnchor(0, 0, 0, 0, lastColumn, 7, lastColumn + 8, 18);</span>
-<span class="fc" id="L229">    XSSFChart chart = drawing.createChart(anchor);</span>
-<span class="fc" id="L230">    chart.setTitleText(&quot;Enrollment Graph&quot;);</span>
+        // Put the chart to the right of columns
+<span class="fc" id="L262">        XSSFClientAnchor anchor = new XSSFClientAnchor(0, 0, 0, 0, lastColumn, 7, lastColumn + 8, 18);</span>
+<span class="fc" id="L263">        XSSFChart chart = drawing.createChart(anchor);</span>
+<span class="fc" id="L264">        chart.setTitleText(&quot;Enrollment Graph&quot;);</span>
+<span class="fc" id="L265">        chart.getOrAddLegend().setPosition(LegendPosition.RIGHT);</span>
 
-<span class="fc" id="L232">    XDDFValueAxis xAxis = chart.createValueAxis(AxisPosition.BOTTOM);</span>
-<span class="fc" id="L233">    xAxis.setTitle(&quot;Enrollment Time Period&quot;);</span>
+<span class="fc" id="L267">        XDDFValueAxis xAxis = chart.createValueAxis(AxisPosition.BOTTOM);</span>
+<span class="fc" id="L268">        xAxis.setTitle(&quot;Enrollment Time Period&quot;);</span>
 
-<span class="fc" id="L235">    XDDFValueAxis yAxis = chart.createValueAxis(AxisPosition.LEFT);</span>
-<span class="fc" id="L236">    yAxis.setTitle(&quot;Enrollment&quot;);</span>
+<span class="fc" id="L270">        XDDFValueAxis yAxis = chart.createValueAxis(AxisPosition.LEFT);</span>
+<span class="fc" id="L271">        yAxis.setTitle(&quot;Enrollment&quot;);</span>
 
-<span class="fc" id="L238">    XDDFScatterChartData data = (XDDFScatterChartData) chart.createData(ChartTypes.SCATTER, xAxis, yAxis);</span>
+<span class="fc" id="L273">        XDDFScatterChartData data = (XDDFScatterChartData) chart.createData(ChartTypes.SCATTER, xAxis, yAxis);</span>
+<span class="fc" id="L274">        data.setVaryColors(false);</span>
+<span class="fc" id="L275">        addSeriesFromSheet(sheet, data);</span>
 
-<span class="fc" id="L240">    chart.plot(data);</span>
-<span class="fc" id="L241">}</span>
+<span class="fc" id="L277">        chart.plot(data);</span>
+
+<span class="fc" id="L279">        CTScatterChart scatter = chart.getCTChart().getPlotArea().getScatterChartArray(0);</span>
+<span class="pc bpc" id="L280" title="1 of 2 branches missed.">        if (scatter.getScatterStyle() == null) {</span>
+<span class="fc" id="L281">            scatter.addNewScatterStyle().setVal(STScatterStyle.LINE_MARKER);</span>
+        }
+<span class="fc" id="L283">    }</span>
+
+    /**
+     * Adds the single projected series: the last (d, enrollment) column pair in the header row.
+     */
+    private void addSeriesFromSheet(XSSFSheet sheet, XDDFScatterChartData data) {
+<span class="fc" id="L289">        Row header = sheet.getRow(0);</span>
+<span class="fc" id="L290">        int yCol = header.getLastCellNum() - 1;</span>
+<span class="fc" id="L291">        int xCol = yCol - 1;</span>
+<span class="fc" id="L292">        int lastRow = lastNumericRow(sheet, yCol);</span>
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">        if (lastRow &lt; 1) {</span>
+<span class="nc" id="L294">            return;</span>
+        }
+<span class="fc" id="L296">        XDDFNumericalDataSource&lt;Double&gt; xs = XDDFDataSourcesFactory.fromNumericCellRange(</span>
+            sheet, new CellRangeAddress(1, lastRow, xCol, xCol));
+<span class="fc" id="L298">        XDDFNumericalDataSource&lt;Double&gt; ys = XDDFDataSourcesFactory.fromNumericCellRange(</span>
+            sheet, new CellRangeAddress(1, lastRow, yCol, yCol));
+
+<span class="fc" id="L301">        XDDFScatterChartData.Series series = (XDDFScatterChartData.Series) data.addSeries(xs, ys);</span>
+<span class="fc" id="L302">        series.setTitle(header.getCell(yCol).getStringCellValue(),</span>
+<span class="fc" id="L303">            new CellReference(sheet.getSheetName(), 0, yCol, true, true));</span>
+<span class="fc" id="L304">        series.setMarkerStyle(MarkerStyle.NONE);</span>
+<span class="fc" id="L305">        series.setSmooth(false);</span>
+<span class="fc" id="L306">    }</span>
+
+    /** @return index of the last row in the unbroken run of numeric cells below the header, or 0 if none */
+    private int lastNumericRow(XSSFSheet sheet, int column) {
+<span class="fc" id="L310">        int last = 0;</span>
+<span class="fc bfc" id="L311" title="All 2 branches covered.">        for (int r = 1; r &lt;= sheet.getLastRowNum(); r++) {</span>
+<span class="fc" id="L312">            Row row = sheet.getRow(r);</span>
+<span class="pc bpc" id="L313" title="1 of 4 branches missed.">            if (row == null || row.getCell(column) == null</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">                    || row.getCell(column).getCellType() != CellType.NUMERIC) {</span>
+<span class="fc" id="L315">                break;</span>
+            }
+<span class="fc" id="L317">            last = r;</span>
+        }
+<span class="fc" id="L319">        return last;</span>
+}
 
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
